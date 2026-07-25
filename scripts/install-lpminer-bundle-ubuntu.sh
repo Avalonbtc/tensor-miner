@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Install an offline lpminer bundle on an Ubuntu target and create the miner.
+set -Eeuo pipefail
+
+die() { printf '[lpminer-install] ERROR: %s\n' "$*" >&2; exit 2; }
+
+usage() {
+  cat <<'EOF'
+Usage:
+  install-lpminer-bundle-ubuntu.sh --bundle /path/to/bundle --label new-rig-name \
+    [--wallet tc1...] [--pool stratum+tls://eu.lproute.com:4160] \
+    [--name lpminer] [--volume lpminer-models] [--shm-gib 6] \
+    [--replace] [--replace-cache]
+
+Without --wallet/--pool, the values captured from the source miner are used.
+Docker, NVIDIA driver, and NVIDIA Container Toolkit must already be installed.
+EOF
+}
+
+bundle=""
+label=""
+wallet=""
+pool=""
+container_name=lpminer
+volume_name=lpminer-models
+shm_gib=6
+replace=0
+replace_cache=0
+
+while (($#)); do
+  case "$1" in
+    --bundle) bundle="${2:-}"; shift 2 ;;
+    --label) label="${2:-}"; shift 2 ;;
+    --wallet) wallet="${2:-}"; shift 2 ;;
+    --pool) pool="${2:-}"; shift 2 ;;
+    --name) container_name="${2:-}"; shift 2 ;;
+    --volume) volume_name="${2:-}"; shift 2 ;;
+    --shm-gib) shm_gib="${2:-}"; shift 2 ;;
+    --replace) replace=1; shift ;;
+    --replace-cache) replace_cache=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown argument: $1" ;;
+  esac
+done
+
+[[ -d "$bundle" ]] || die "bundle directory does not exist: $bundle"
+[[ "$label" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "--label is required and must be safe"
+[[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
+[[ "$volume_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "volume name is invalid"
+[[ "$shm_gib" =~ ^[4-9][0-9]*$ ]] || die "shm-gib must be at least 4"
+for file in image.tar models.tar metadata.env SHA256SUMS; do
+  [[ -f "$bundle/$file" ]] || die "bundle is missing $file"
+done
+
+(cd "$bundle" && sha256sum -c SHA256SUMS)
+image="$(sed -n 's/^IMAGE=//p' "$bundle/metadata.env" | head -n 1)"
+[[ -n "$wallet" ]] || wallet="$(sed -n 's/^WALLET=//p' "$bundle/metadata.env" | head -n 1)"
+[[ -n "$pool" ]] || pool="$(sed -n 's/^POOL=//p' "$bundle/metadata.env" | head -n 1)"
+[[ "$image" =~ ^[[:alnum:]_./:@-]+$ ]] || die "bundle image reference is invalid"
+[[ "$wallet" =~ ^tc1[0-9a-z]+$ ]] || die "wallet must be a TensorCash tc1... address"
+[[ "$pool" =~ ^stratum\+(tcp|tls|ssl)://[^/:[:space:]]+:[0-9]+$ ]] || die "pool must be a raw stratum URL"
+
+command -v docker >/dev/null 2>&1 || die "Docker is not installed"
+docker info >/dev/null 2>&1 || die "Docker daemon is unavailable to this user"
+command -v nvidia-smi >/dev/null 2>&1 || die "NVIDIA driver is not installed"
+nvidia-smi -L >/dev/null 2>&1 || die "NVIDIA GPU is unavailable"
+
+if docker container inspect "$container_name" >/dev/null 2>&1; then
+  ((replace)) || die "container $container_name exists; use docker start $container_name or pass --replace"
+  docker rm -f "$container_name" >/dev/null
+fi
+if docker volume inspect "$volume_name" >/dev/null 2>&1; then
+  ((replace_cache)) || die "volume $volume_name exists; pass --replace-cache only if it is safe to erase"
+  docker volume rm "$volume_name" >/dev/null
+fi
+
+printf '[lpminer-install] loading image %s\n' "$image"
+docker image load --input "$bundle/image.tar" >/dev/null
+docker image inspect "$image" >/dev/null 2>&1 || die "loaded archive does not contain $image"
+docker volume create "$volume_name" >/dev/null
+
+printf '[lpminer-install] restoring model cache\n'
+docker run --rm \
+  --entrypoint /bin/sh \
+  --mount type=volume,src="$volume_name",dst=/models \
+  --mount type=bind,src="$bundle",dst=/bundle,readonly \
+  "$image" -c 'tar -C /models -xf /bundle/models.tar'
+
+printf '[lpminer-install] starting %s with LABEL=%s\n' "$container_name" "$label"
+docker run -d \
+  --name "$container_name" \
+  --restart unless-stopped \
+  --gpus all \
+  --shm-size="${shm_gib}g" \
+  --mount type=volume,src="$volume_name",dst=/models \
+  --env "WALLET=$wallet" \
+  --env "LABEL=$label" \
+  --env "POOL=$pool" \
+  "$image" >/dev/null
+
+sleep 2
+docker ps --filter "name=^/${container_name}$" --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+docker logs --tail 20 "$container_name" || true
+printf '[lpminer-install] started. Follow logs with: docker logs -f %s\n' "$container_name"
