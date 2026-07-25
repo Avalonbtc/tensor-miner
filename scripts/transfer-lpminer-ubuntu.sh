@@ -45,7 +45,7 @@ done
 [[ "$label" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "--label is required and must be safe"
 [[ "$port" =~ ^[0-9]+$ ]] && ((10#$port >= 1 && 10#$port <= 65535)) || die "port is invalid"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
-[[ "$shm_gib" =~ ^[4-9][0-9]*$ ]] || die "shm-gib must be at least 4"
+[[ "$shm_gib" =~ ^[0-9]+$ ]] && ((10#$shm_gib >= 4)) || die "shm-gib must be at least 4"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -n "$bundle" ]]; then
   [[ -d "$bundle" && -f "$bundle/SHA256SUMS" ]] || die "--bundle must be a prepared bundle directory"

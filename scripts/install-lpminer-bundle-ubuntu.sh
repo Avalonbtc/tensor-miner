@@ -47,7 +47,7 @@ done
 [[ "$label" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "--label is required and must be safe"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
 [[ "$volume_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "volume name is invalid"
-[[ "$shm_gib" =~ ^[4-9][0-9]*$ ]] || die "shm-gib must be at least 4"
+[[ "$shm_gib" =~ ^[0-9]+$ ]] && ((10#$shm_gib >= 4)) || die "shm-gib must be at least 4"
 for file in image.tar models.tar metadata.env SHA256SUMS; do
   [[ -f "$bundle/$file" ]] || die "bundle is missing $file"
 done
