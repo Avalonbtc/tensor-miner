@@ -64,6 +64,10 @@ command -v docker >/dev/null 2>&1 || die "Docker is not installed"
 docker info >/dev/null 2>&1 || die "Docker daemon is unavailable to this user"
 command -v nvidia-smi >/dev/null 2>&1 || die "NVIDIA driver is not installed"
 nvidia-smi -L >/dev/null 2>&1 || die "NVIDIA GPU is unavailable"
+gpu_count="$(nvidia-smi -L | awk '/^GPU / {count++} END {print count + 0}')"
+minimum_shm_gib=4
+((gpu_count >= 4)) && minimum_shm_gib=16
+((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
 
 if docker container inspect "$container_name" >/dev/null 2>&1; then
   ((replace)) || die "container $container_name exists; use docker start $container_name or pass --replace"

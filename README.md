@@ -70,3 +70,5 @@ bash scripts/transfer-lpminer-ubuntu.sh \
   --target root@target-host \
   --label rig-02
 ```
+
+For a four-or-more GPU target, append `--shm-gib 16` to the transfer command.

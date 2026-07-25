@@ -8,7 +8,7 @@ usage() {
 Usage:
   transfer-lpminer-ubuntu.sh --target user@host --label target-rig-name \
     [--bundle /path/to/prepared-bundle] [--port 22] [--container lpminer] \
-    [--output /path/to/bundle] [--replace]
+    [--output /path/to/bundle] [--shm-gib 6] [--replace]
 
 The target uses the source wallet/pool by default. Use the bundle installer on
 the target directly when you need to override WALLET or POOL.
@@ -22,6 +22,7 @@ container_name=lpminer
 output_dir=""
 bundle=""
 replace=0
+shm_gib=6
 while (($#)); do
   case "$1" in
     --target) target="${2:-}"; shift 2 ;;
@@ -31,6 +32,7 @@ while (($#)); do
     --output) output_dir="${2:-}"; shift 2 ;;
     --bundle) bundle="${2:-}"; shift 2 ;;
     --replace) replace=1; shift ;;
+    --shm-gib) shm_gib="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
@@ -40,6 +42,7 @@ done
 [[ "$label" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "--label is required and must be safe"
 [[ "$port" =~ ^[0-9]+$ ]] && ((10#$port >= 1 && 10#$port <= 65535)) || die "port is invalid"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
+[[ "$shm_gib" =~ ^[4-9][0-9]*$ ]] || die "shm-gib must be at least 4"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -n "$bundle" ]]; then
   [[ -d "$bundle" && -f "$bundle/SHA256SUMS" ]] || die "--bundle must be a prepared bundle directory"
@@ -58,7 +61,7 @@ else
   scp -P "$port" -r "$output_dir/." "$target:$remote_dir/"
 fi
 
-remote_command="bash $(printf '%q' "$remote_dir/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_dir") --label $(printf '%q' "$label")"
+remote_command="bash $(printf '%q' "$remote_dir/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_dir") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib")"
 if ((replace)); then remote_command+=" --replace --replace-cache"; fi
 ssh -p "$port" "$target" "$remote_command"
 printf '[lpminer-transfer] complete. Local bundle kept at: %s\n' "$output_dir"
