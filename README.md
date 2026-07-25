@@ -2,6 +2,16 @@
 
 Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay3`.
 
+For the interactive version, run this single command after cloning the repo:
+
+```bash
+bash scripts/lpminer-menu-ubuntu.sh
+```
+
+The menu covers Docker/NVIDIA runtime setup, image pull, new launch, parameter
+replacement, stop/restart/logs, no-GPU preparation, package, transfer, and
+bundle installation.
+
 ## Prerequisites
 
 Each mining host needs Docker, an NVIDIA driver, and NVIDIA Container Toolkit.
