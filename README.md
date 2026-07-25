@@ -72,3 +72,8 @@ bash scripts/transfer-lpminer-ubuntu.sh \
 ```
 
 For a four-or-more GPU target, append `--shm-gib 16` to the transfer command.
+
+When `rsync` is installed on both hosts, the transfer uses resumable
+`--append-verify` mode. Re-run the exact same command after an interruption;
+the stable `/tmp/<bundle-name>` target directory retains partial files. The
+SCP fallback cannot resume.

@@ -8,7 +8,8 @@ usage() {
 Usage:
   transfer-lpminer-ubuntu.sh --target user@host --label target-rig-name \
     [--bundle /path/to/prepared-bundle] [--port 22] [--container lpminer] \
-    [--output /path/to/bundle] [--shm-gib 6] [--replace]
+    [--output /path/to/bundle] [--remote-dir /tmp/lpminer-bundle] \
+    [--shm-gib 6] [--replace]
 
 The target uses the source wallet/pool by default. Use the bundle installer on
 the target directly when you need to override WALLET or POOL.
@@ -21,6 +22,7 @@ port=22
 container_name=lpminer
 output_dir=""
 bundle=""
+remote_dir=""
 replace=0
 shm_gib=6
 while (($#)); do
@@ -31,6 +33,7 @@ while (($#)); do
     --container) container_name="${2:-}"; shift 2 ;;
     --output) output_dir="${2:-}"; shift 2 ;;
     --bundle) bundle="${2:-}"; shift 2 ;;
+    --remote-dir) remote_dir="${2:-}"; shift 2 ;;
     --replace) replace=1; shift ;;
     --shm-gib) shm_gib="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -53,11 +56,15 @@ else
   fi
   bash "$script_dir/package-lpminer-ubuntu.sh" --container "$container_name" --output "$output_dir"
 fi
-remote_dir="/tmp/lpminer-bundle-$(date +%Y%m%d-%H%M%S)"
+if [[ -z "$remote_dir" ]]; then
+  remote_dir="/tmp/$(basename "$output_dir")"
+fi
+[[ "$remote_dir" == /tmp/* && "$remote_dir" != *$'\n'* && "$remote_dir" != *$'\r'* ]] || die "remote-dir must be below /tmp"
 ssh -p "$port" "$target" "mkdir -p $(printf '%q' "$remote_dir")"
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --partial --info=progress2 -e "ssh -p $port" "$output_dir/" "$target:$remote_dir/"
+  rsync -a --partial --append-verify --info=progress2 -e "ssh -p $port" "$output_dir/" "$target:$remote_dir/"
 else
+  printf '[lpminer-transfer] rsync is unavailable; SCP fallback cannot resume interrupted files\n' >&2
   scp -P "$port" -r "$output_dir/." "$target:$remote_dir/"
 fi
 
