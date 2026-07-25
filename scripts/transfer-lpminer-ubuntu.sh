@@ -7,7 +7,8 @@ usage() {
   cat <<'EOF'
 Usage:
   transfer-lpminer-ubuntu.sh --target user@host --label target-rig-name \
-    [--port 22] [--container lpminer] [--output /path/to/bundle] [--replace]
+    [--bundle /path/to/prepared-bundle] [--port 22] [--container lpminer] \
+    [--output /path/to/bundle] [--replace]
 
 The target uses the source wallet/pool by default. Use the bundle installer on
 the target directly when you need to override WALLET or POOL.
@@ -19,6 +20,7 @@ label=""
 port=22
 container_name=lpminer
 output_dir=""
+bundle=""
 replace=0
 while (($#)); do
   case "$1" in
@@ -27,6 +29,7 @@ while (($#)); do
     --port) port="${2:-}"; shift 2 ;;
     --container) container_name="${2:-}"; shift 2 ;;
     --output) output_dir="${2:-}"; shift 2 ;;
+    --bundle) bundle="${2:-}"; shift 2 ;;
     --replace) replace=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
@@ -38,11 +41,15 @@ done
 [[ "$port" =~ ^[0-9]+$ ]] && ((10#$port >= 1 && 10#$port <= 65535)) || die "port is invalid"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -z "$output_dir" ]]; then
-  output_dir="${PWD}/lpminer-bundle-$(date +%Y%m%d-%H%M%S)"
+if [[ -n "$bundle" ]]; then
+  [[ -d "$bundle" && -f "$bundle/SHA256SUMS" ]] || die "--bundle must be a prepared bundle directory"
+  output_dir="$bundle"
+else
+  if [[ -z "$output_dir" ]]; then
+    output_dir="${PWD}/lpminer-bundle-$(date +%Y%m%d-%H%M%S)"
+  fi
+  bash "$script_dir/package-lpminer-ubuntu.sh" --container "$container_name" --output "$output_dir"
 fi
-
-bash "$script_dir/package-lpminer-ubuntu.sh" --container "$container_name" --output "$output_dir"
 remote_dir="/tmp/lpminer-bundle-$(date +%Y%m%d-%H%M%S)"
 ssh -p "$port" "$target" "mkdir -p $(printf '%q' "$remote_dir")"
 if command -v rsync >/dev/null 2>&1; then

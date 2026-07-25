@@ -48,3 +48,25 @@ the target starts a new process with the already-copied cache.
 
 Use `--replace` only when it is safe to remove the target's existing `lpminer`
 container and model-cache volume.
+
+## Prepare on a no-GPU VPS
+
+For a 12 GB or 16 GB target, pre-download the FP8 model without a GPU:
+
+```bash
+bash scripts/prepare-lpminer-bundle-ubuntu.sh \
+  --wallet tc1yourwallet \
+  --profile fp8 \
+  --output ~/lpminer-fp8-bundle
+```
+
+Use `--profile bf16` for a 24 GB target or `--profile all` for a bundle that
+must support both FP8 and BF16 targets. Transfer it in one command while
+setting the new worker name:
+
+```bash
+bash scripts/transfer-lpminer-ubuntu.sh \
+  --bundle ~/lpminer-fp8-bundle \
+  --target root@target-host \
+  --label rig-02
+```
