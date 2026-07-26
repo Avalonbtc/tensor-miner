@@ -61,17 +61,23 @@ else
   fi
   bash "$script_dir/package-lpminer-ubuntu.sh" --container "$container_name" --output "$output_dir"
 fi
+(cd "$output_dir" && sha256sum --check --strict SHA256SUMS) ||
+  die "source bundle integrity check failed; rebuild the bundle before transferring it"
 if [[ -z "$remote_dir" ]]; then
   remote_dir="/tmp/$(basename "$output_dir")"
 fi
 [[ "$remote_dir" == /tmp/* && "$remote_dir" != *$'\n'* && "$remote_dir" != *$'\r'* ]] || die "remote-dir must be below /tmp"
 ssh -p "$port" "$target" "mkdir -p $(printf '%q' "$remote_dir")"
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --partial --append-verify --info=progress2 -e "ssh -p $port" "$output_dir/" "$target:$remote_dir/"
+  rsync -a --checksum --partial --info=progress2 -e "ssh -p $port" "$output_dir/" "$target:$remote_dir/"
 else
   printf '[lpminer-transfer] rsync is unavailable; SCP fallback cannot resume interrupted files\n' >&2
   scp -P "$port" -r "$output_dir/." "$target:$remote_dir/"
 fi
+
+remote_verify_command="cd $(printf '%q' "$remote_dir") && sha256sum --check --strict SHA256SUMS"
+ssh -p "$port" "$target" "$remote_verify_command" ||
+  die "target bundle integrity check failed; rerun the transfer to repair it"
 
 remote_command="bash $(printf '%q' "$remote_dir/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_dir") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib")"
 if ((replace)); then remote_command+=" --replace --replace-cache"; fi
