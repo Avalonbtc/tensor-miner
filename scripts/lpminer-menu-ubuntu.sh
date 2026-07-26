@@ -30,7 +30,7 @@ gpu_default_shm() {
   ((count >= 4)) && printf '16' || printf '6'
 }
 start_miner() {
-  local replace="$1" wallet label pool image shm old_label old_pool args=()
+  local replace="$1" wallet label pool image shm old_label old_pool graph_mode graph_mem graph_devices args=()
   old_label="$(container_env LABEL || true)"
   old_pool="$(container_env POOL || true)"
   wallet="$(ask '钱包地址 (tc1...)' "$(container_env WALLET)")"
@@ -38,6 +38,21 @@ start_miner() {
   pool="$(ask '矿池地址' "${old_pool:-$pool_default}")"
   image="$(ask '镜像' "$image_default")"
   shm="$(ask '共享内存 GiB' "$(gpu_default_shm)")"
+  graph_mode="$(ask '启用 CUDA Graph 图优化测试？(y/N)' N)"
+  case "$graph_mode" in
+    y|Y|yes|YES)
+      graph_mem="$(ask '图模式显存比例（12G 推荐 0.90）' 0.90)"
+      graph_devices="$(ask '测试 GPU（0=仅第1张，all=全部）' 0)"
+      args+=(--cuda-graphs --gpu-memory-utilization "$graph_mem")
+      if [[ "$graph_devices" != all ]]; then
+        args+=(--devices "$graph_devices")
+      fi
+      ;;
+    n|N|no|NO|'') ;;
+    *)
+      printf '无效选择，已保持稳定模式。\n'
+      ;;
+  esac
   [[ "$replace" == 1 ]] && args+=(--replace)
   bash "$script_dir/run-lpminer-ubuntu.sh" \
     --wallet "$wallet" --label "$label" --pool "$pool" --image "$image" --shm-gib "$shm" "${args[@]}"

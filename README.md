@@ -35,6 +35,32 @@ bash scripts/run-lpminer-ubuntu.sh \
   --shm-gib 16
 ```
 
+## CUDA Graph test for 12 GB FP8 cards
+
+The standard 12 GB FP8 profile uses eager mode for the safest memory behavior.
+The Chinese interactive menu now asks whether to enable an experimental CUDA
+Graph test when creating or replacing a miner. Select `y`, use `0.90` as the
+memory ratio, and enter `0` to validate one card first. The existing
+`lpminer-models` volume is preserved when the container is replaced, so the
+model is not downloaded again.
+
+For a command-line test, use:
+
+```bash
+bash scripts/run-lpminer-ubuntu.sh \
+  --wallet tc1yourwallet \
+  --label graph-test \
+  --shm-gib 16 \
+  --replace \
+  --cuda-graphs \
+  --gpu-memory-utilization 0.90 \
+  --devices 0
+```
+
+After a stable 5-minute comparison of accepted shares and proof/s, replace the
+miner again and use `--devices 0,1,2,3,4` for a five-card host. Re-run without
+`--cuda-graphs` to restore stable eager mode.
+
 Stop and restart an existing miner without re-entering parameters:
 
 ```bash
