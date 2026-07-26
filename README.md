@@ -9,8 +9,8 @@ bash scripts/lpminer-menu-ubuntu.sh
 ```
 
 The menu covers Docker/NVIDIA runtime setup, image pull, new launch, parameter
-replacement, stop/restart/logs, no-GPU preparation, package, transfer, and
-bundle installation.
+replacement, stop/restart/logs, IP-ban proxy configuration, no-GPU preparation,
+package, transfer, and bundle installation.
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ bash scripts/run-lpminer-ubuntu.sh \
 
 ## CUDA Graph test for 12 GB FP8 cards
 
-Overlay4 enables CUDA Graphs and `torch.compile` by default for the 12 GB FP8
+Overlay5 enables CUDA Graphs and `torch.compile` by default for the 12 GB FP8
 profile. The Chinese interactive menu's normal `N` path therefore starts all
 available GPUs with the default graph-optimized profile. Select `y` only to
 use a conservative one-card test, then use `0.91` as the memory ratio and
@@ -67,6 +67,32 @@ Stop and restart an existing miner without re-entering parameters:
 docker stop lpminer
 docker start lpminer
 ```
+
+## Add an IP-ban proxy list to a running miner
+
+Docker cannot change a running container's environment variables. Menu option
+`12` therefore recreates `lpminer` with the supplied proxy list while keeping
+the `lpminer-models` volume and supported runtime tuning variables; models are
+not downloaded again. Enter proxies as a comma-separated list, for example:
+
+```text
+socks5://user:password@203.0.113.10:1080,http://203.0.113.20:8080
+```
+
+The same operation can be run non-interactively:
+
+```bash
+bash scripts/run-lpminer-ubuntu.sh \
+  --wallet tc1yourwallet \
+  --label rig-01 \
+  --replace \
+  --preserve-runtime-env \
+  --proxy-pool 'socks5://user:password@203.0.113.10:1080,http://203.0.113.20:8080'
+```
+
+Each failed proxy is cooled for 60 seconds by default and the next proxy is
+selected. Use `--proxy-failure-threshold` and `--proxy-cooldown-secs` to change
+that behavior. Run menu option `12` and choose `2` to disable proxy failover.
 
 ## Offline migration to another Ubuntu machine
 

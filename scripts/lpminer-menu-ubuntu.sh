@@ -29,6 +29,18 @@ gpu_default_shm() {
   fi
   ((count >= 4)) && printf '16' || printf '6'
 }
+container_image() {
+  docker inspect --format '{{.Config.Image}}' lpminer 2>/dev/null || true
+}
+container_shm_gib() {
+  local bytes
+  bytes="$(docker inspect --format '{{.HostConfig.ShmSize}}' lpminer 2>/dev/null || true)"
+  if [[ "$bytes" =~ ^[0-9]+$ ]] && ((bytes > 0)); then
+    printf '%s' $(((bytes + 1073741823) / 1073741824))
+  else
+    gpu_default_shm
+  fi
+}
 start_miner() {
   local replace="$1" wallet label pool image shm old_label old_pool graph_mode graph_mem graph_devices args=()
   old_label="$(container_env LABEL || true)"
@@ -53,9 +65,58 @@ start_miner() {
       printf '无效选择，已保持稳定模式。\n'
       ;;
   esac
-  [[ "$replace" == 1 ]] && args+=(--replace)
+  [[ "$replace" == 1 ]] && args+=(--replace --preserve-runtime-env)
   bash "$script_dir/run-lpminer-ubuntu.sh" \
     --wallet "$wallet" --label "$label" --pool "$pool" --image "$image" --shm-gib "$shm" "${args[@]}"
+}
+configure_proxy_failover() {
+  local action wallet label pool image shm proxy_pool rotate threshold cooldown args=()
+  docker inspect lpminer >/dev/null 2>&1 || {
+    printf '未找到正在运行或已停止的 lpminer 容器，请先通过菜单 3 启动。\n'
+    return
+  }
+  action="$(ask '代理故障切换：1=添加或更新代理列表，2=关闭' 1)"
+  wallet="$(container_env WALLET)"
+  label="$(container_env LABEL)"
+  pool="$(container_env POOL)"
+  image="$(container_image)"
+  shm="$(container_shm_gib)"
+  [[ -n "$wallet" && -n "$label" && -n "$pool" && -n "$image" ]] || {
+    printf '无法读取当前矿机的完整启动参数，未进行修改。\n'
+    return
+  }
+  case "$action" in
+    1)
+      proxy_pool="$(ask '代理列表（逗号分隔；支持 socks5:// 或 http://）' "$(container_env LP_TSC_PROXY_POOL)")"
+      [[ -n "$proxy_pool" ]] || {
+        printf '代理列表不能为空，未进行修改。\n'
+        return
+      }
+      rotate="$(ask '轮换方式（sequential 或 random）' "$(container_env LP_TSC_PROXY_ROTATE)")"
+      rotate="${rotate:-sequential}"
+      threshold="$(ask '单个代理失败几次后切换' "$(container_env LP_TSC_PROXY_FAILURE_THRESHOLD)")"
+      threshold="${threshold:-1}"
+      cooldown="$(ask '坏代理冷却秒数' "$(container_env LP_TSC_PROXY_COOLDOWN_SECS)")"
+      cooldown="${cooldown:-60}"
+      args+=(
+        --proxy-pool "$proxy_pool"
+        --proxy-rotate "$rotate"
+        --proxy-failure-threshold "$threshold"
+        --proxy-cooldown-secs "$cooldown"
+      )
+      ;;
+    2)
+      args+=(--disable-proxy-failover)
+      ;;
+    *)
+      printf '无效选择，未进行修改。\n'
+      return
+      ;;
+  esac
+  printf '将重建 lpminer 以更新环境变量；lpminer-models 模型缓存会保留。\n'
+  bash "$script_dir/run-lpminer-ubuntu.sh" \
+    --wallet "$wallet" --label "$label" --pool "$pool" --image "$image" \
+    --shm-gib "$shm" --replace --preserve-runtime-env "${args[@]}"
 }
 prepare_bundle() {
   local wallet profile output
@@ -108,6 +169,7 @@ while true; do
 9) 打包当前已正常运行的矿机
 10) 自动打包或迁移 bundle 到另一台 Ubuntu
 11) 在本 GPU 服务器恢复并安装 bundle
+12) 配置 IP ban 代理列表（保留模型缓存并重建矿机）
 0) 退出
 EOF
   read -rp '请选择：' selection
@@ -123,6 +185,7 @@ EOF
     9) bash "$script_dir/package-lpminer-ubuntu.sh" --output "$(ask '打包输出目录' "$HOME/lpminer-bundle")" ;;
     10) transfer_bundle ;;
     11) install_bundle ;;
+    12) configure_proxy_failover ;;
     0) exit 0 ;;
     *) printf '无效选择，请重新输入。\n' ;;
   esac
