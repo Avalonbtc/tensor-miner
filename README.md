@@ -71,13 +71,20 @@ docker start lpminer
 ## Add an IP-ban proxy list to a running miner
 
 Docker cannot change a running container's environment variables. Menu option
-`12` therefore recreates `lpminer` with the supplied proxy list while keeping
+`12` therefore recreates `lpminer` from a supplied SOCKS5 proxy text file while keeping
 the `lpminer-models` volume and supported runtime tuning variables; models are
-not downloaded again. Enter proxies as a comma-separated list, for example:
+not downloaded again. The file is read on the Ubuntu host and is not copied into
+the image. Use one proxy per line in this exact format:
 
 ```text
-socks5://user:password@203.0.113.10:1080,http://203.0.113.20:8080
+203.0.113.10:1080:username:password
+203.0.113.11:1080:username:password
 ```
+
+Blank lines and lines starting with `#` are ignored. Usernames and passwords are
+URL-encoded before the SOCKS5 connection is configured. Because `:` is the field
+separator, this file format cannot represent a username or password containing
+a colon.
 
 The same operation can be run non-interactively:
 
@@ -87,12 +94,16 @@ bash scripts/run-lpminer-ubuntu.sh \
   --label rig-01 \
   --replace \
   --preserve-runtime-env \
-  --proxy-pool 'socks5://user:password@203.0.113.10:1080,http://203.0.113.20:8080'
+  --proxy-file /home/ubuntu/lpminer-s5.txt
 ```
 
 Each failed proxy is cooled for 60 seconds by default and the next proxy is
 selected. Use `--proxy-failure-threshold` and `--proxy-cooldown-secs` to change
 that behavior. Run menu option `12` and choose `2` to disable proxy failover.
+To change the proxy list later, edit the text file and run option `12` again;
+Docker must recreate the container for the new list to take effect. Keep the
+file private (for example, `chmod 600 /home/ubuntu/lpminer-s5.txt`) and do not
+commit it to Git.
 
 ## Offline migration to another Ubuntu machine
 

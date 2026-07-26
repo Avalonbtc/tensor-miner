@@ -67,12 +67,12 @@ start_miner() {
     --wallet "$wallet" --label "$label" --pool "$pool" --image "$image" --shm-gib "$shm" "${args[@]}"
 }
 configure_proxy_failover() {
-  local action wallet label pool image shm proxy_pool rotate threshold cooldown args=()
+  local action wallet label pool image shm proxy_file rotate threshold cooldown args=()
   docker inspect lpminer >/dev/null 2>&1 || {
     printf '未找到正在运行或已停止的 lpminer 容器，请先通过菜单 3 启动。\n'
     return
   }
-  action="$(ask '代理故障切换：1=添加或更新代理列表，2=关闭' 1)"
+  action="$(ask '代理故障切换：1=读取 S5 代理 txt，2=关闭' 1)"
   wallet="$(container_env WALLET)"
   label="$(container_env LABEL)"
   pool="$(container_env POOL)"
@@ -84,9 +84,9 @@ configure_proxy_failover() {
   }
   case "$action" in
     1)
-      proxy_pool="$(ask '代理列表（逗号分隔；支持 socks5:// 或 http://）' "$(container_env LP_TSC_PROXY_POOL)")"
-      [[ -n "$proxy_pool" ]] || {
-        printf '代理列表不能为空，未进行修改。\n'
+      proxy_file="$(ask 'S5 代理 txt 路径（每行 IP:端口:用户名:密码）' "$(container_env LP_TSC_PROXY_SOURCE_FILE)")"
+      [[ -n "$proxy_file" ]] || {
+        printf '代理 txt 路径不能为空，未进行修改。\n'
         return
       }
       rotate="$(ask '轮换方式（sequential 或 random）' "$(container_env LP_TSC_PROXY_ROTATE)")"
@@ -96,7 +96,7 @@ configure_proxy_failover() {
       cooldown="$(ask '坏代理冷却秒数' "$(container_env LP_TSC_PROXY_COOLDOWN_SECS)")"
       cooldown="${cooldown:-60}"
       args+=(
-        --proxy-pool "$proxy_pool"
+        --proxy-file "$proxy_file"
         --proxy-rotate "$rotate"
         --proxy-failure-threshold "$threshold"
         --proxy-cooldown-secs "$cooldown"
@@ -166,7 +166,7 @@ while true; do
 9) 打包当前已正常运行的矿机
 10) 自动打包或迁移 bundle 到另一台 Ubuntu
 11) 在本 GPU 服务器恢复并安装 bundle
-12) 配置 IP ban 代理列表（保留模型缓存并重建矿机）
+12) 读取 S5 代理 txt 并配置 IP ban 切换（保留模型缓存并重建矿机）
 0) 退出
 EOF
   read -rp '请选择：' selection
