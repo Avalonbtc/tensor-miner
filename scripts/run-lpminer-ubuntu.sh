@@ -11,6 +11,7 @@ Usage:
     [--cuda-graphs] [--gpu-memory-utilization 0.91] [--devices 0,1] \
     [--proxy-file /path/proxies.txt] [--proxy-pool URI,...] \
     [--proxy-rotate sequential|random] \
+    [--proxy-worker-rotate 0|1] \
     [--proxy-failure-threshold 1] [--proxy-cooldown-secs 60] \
     [--preserve-runtime-env] [--disable-proxy-failover]
 
@@ -31,7 +32,7 @@ EOF
 wallet=""
 label="$(hostname)"
 pool="stratum+tls://eu.lproute.com:4160"
-image="avalonbtc/lpminer-tensorcash:1.1.1-overlay5"
+image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
 container_name=lpminer
 shm_gib=6
 replace=0
@@ -41,6 +42,7 @@ devices=""
 proxy_pool=""
 proxy_file=""
 proxy_rotate=sequential
+proxy_worker_rotate=1
 proxy_failure_threshold=1
 proxy_cooldown_secs=60
 preserve_runtime_env=0
@@ -60,6 +62,7 @@ while (($#)); do
     --proxy-file) proxy_file="${2:-}"; shift 2 ;;
     --proxy-pool) proxy_pool="${2:-}"; shift 2 ;;
     --proxy-rotate) proxy_rotate="${2:-}"; shift 2 ;;
+    --proxy-worker-rotate) proxy_worker_rotate="${2:-}"; shift 2 ;;
     --proxy-failure-threshold) proxy_failure_threshold="${2:-}"; shift 2 ;;
     --proxy-cooldown-secs) proxy_cooldown_secs="${2:-}"; shift 2 ;;
     --preserve-runtime-env) preserve_runtime_env=1; shift ;;
@@ -85,6 +88,8 @@ if [[ -n "$devices" ]]; then
 fi
 [[ "$proxy_rotate" == sequential || "$proxy_rotate" == random ]] ||
   die "proxy-rotate must be sequential or random"
+[[ "$proxy_worker_rotate" == 0 || "$proxy_worker_rotate" == 1 ]] ||
+  die "proxy-worker-rotate must be 0 or 1"
 [[ "$proxy_failure_threshold" =~ ^[1-9][0-9]*$ ]] &&
   ((10#$proxy_failure_threshold <= 100)) ||
   die "proxy-failure-threshold must be an integer from 1 to 100"
@@ -153,7 +158,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
       LP_TSC_FP8_ENFORCE_EAGER LP_TSC_CUDA_GRAPH_SIZES
       LP_TSC_GPU_MEMORY_UTILIZATION LP_TSC_BATCH_SIZE
       LP_TSC_INFLIGHT_REQUESTS LP_TSC_MAX_MODEL_LEN LP_TSC_REQUEST_TOKENS
-      LP_TSC_STRATUM_FAILOVER LP_TSC_PROXY_POOL LP_TSC_PROXY_SOURCE_FILE LP_TSC_PROXY_ROTATE
+      LP_TSC_STRATUM_FAILOVER LP_TSC_PROXY_POOL LP_TSC_PROXY_SOURCE_FILE LP_TSC_PROXY_ROTATE LP_TSC_PROXY_WORKER_ROTATE
       LP_TSC_PROXY_FAILURE_THRESHOLD LP_TSC_PROXY_COOLDOWN_SECS
       LP_TSC_STRATUM_LOCAL_REDIRECT LP_TSC_POOL_REAL_IP
     )
@@ -162,7 +167,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
         CUDA_VISIBLE_DEVICES) [[ -n "$devices" ]] && continue ;;
         LP_TSC_GPU_MEMORY_UTILIZATION) [[ -n "$gpu_memory_utilization" ]] && continue ;;
         LP_TSC_FP8_ENFORCE_EAGER|LP_TSC_CUDA_GRAPH_SIZES) ((cuda_graphs)) && continue ;;
-        LP_TSC_STRATUM_FAILOVER|LP_TSC_PROXY_POOL|LP_TSC_PROXY_SOURCE_FILE|LP_TSC_PROXY_ROTATE|LP_TSC_PROXY_FAILURE_THRESHOLD|LP_TSC_PROXY_COOLDOWN_SECS)
+        LP_TSC_STRATUM_FAILOVER|LP_TSC_PROXY_POOL|LP_TSC_PROXY_SOURCE_FILE|LP_TSC_PROXY_ROTATE|LP_TSC_PROXY_WORKER_ROTATE|LP_TSC_PROXY_FAILURE_THRESHOLD|LP_TSC_PROXY_COOLDOWN_SECS)
           [[ -n "$proxy_pool" || "$disable_proxy_failover" == 1 ]] && continue ;;
       esac
       value="$(container_env_value "$key")"
@@ -188,6 +193,7 @@ if [[ -n "$proxy_pool" ]]; then
     --env 'LP_TSC_STRATUM_FAILOVER=1'
     --env "LP_TSC_PROXY_POOL=$proxy_pool"
     --env "LP_TSC_PROXY_ROTATE=$proxy_rotate"
+    --env "LP_TSC_PROXY_WORKER_ROTATE=$proxy_worker_rotate"
     --env "LP_TSC_PROXY_FAILURE_THRESHOLD=$proxy_failure_threshold"
     --env "LP_TSC_PROXY_COOLDOWN_SECS=$proxy_cooldown_secs"
   )

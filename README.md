@@ -1,6 +1,6 @@
 # Tensor miner Ubuntu scripts
 
-Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay5`.
+Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay6`.
 
 For the interactive version, run this single command after cloning the repo:
 
@@ -99,7 +99,10 @@ bash scripts/run-lpminer-ubuntu.sh \
 
 Each failed proxy is cooled for 60 seconds by default and the next proxy is
 selected. Use `--proxy-failure-threshold` and `--proxy-cooldown-secs` to change
-that behavior. Run menu option `12` and choose `2` to disable proxy failover.
+that behavior. Proxy failover also appends a deterministic `-pN` suffix to the
+worker label for its following login, so each egress attempt is distinguishable
+in pool logs; use `--proxy-worker-rotate 0` to keep the original fixed label.
+Run menu option `12` and choose `2` to disable proxy failover.
 To change the proxy list later, edit the text file and run option `12` again;
 Docker must recreate the container for the new list to take effect. Keep the
 file private (for example, `chmod 600 /home/ubuntu/lpminer-s5.txt`) and do not

@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-image_default="avalonbtc/lpminer-tensorcash:1.1.1-overlay5"
+image_default="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
 pool_default="stratum+tls://eu.lproute.com:4160"
 
 pause() { read -rp '按 Enter 继续... ' _; }
@@ -67,7 +67,7 @@ start_miner() {
     --wallet "$wallet" --label "$label" --pool "$pool" --image "$image" --shm-gib "$shm" "${args[@]}"
 }
 configure_proxy_failover() {
-  local action wallet label pool image shm proxy_file rotate threshold cooldown args=()
+  local action wallet label pool image shm proxy_file rotate worker_rotate threshold cooldown args=()
   docker inspect lpminer >/dev/null 2>&1 || {
     printf '未找到正在运行或已停止的 lpminer 容器，请先通过菜单 3 启动。\n'
     return
@@ -76,7 +76,7 @@ configure_proxy_failover() {
   wallet="$(container_env WALLET)"
   label="$(container_env LABEL)"
   pool="$(container_env POOL)"
-  image="$(ask '镜像（建议使用 overlay5）' "$image_default")"
+  image="$(ask '镜像（建议使用 overlay6）' "$image_default")"
   shm="$(container_shm_gib)"
   [[ -n "$wallet" && -n "$label" && -n "$pool" && -n "$image" ]] || {
     printf '无法读取当前矿机的完整启动参数，未进行修改。\n'
@@ -91,6 +91,8 @@ configure_proxy_failover() {
       }
       rotate="$(ask '轮换方式（sequential 或 random）' "$(container_env LP_TSC_PROXY_ROTATE)")"
       rotate="${rotate:-sequential}"
+      worker_rotate="$(ask '切换代理时自动更换矿工名（1=开启，0=关闭）' "$(container_env LP_TSC_PROXY_WORKER_ROTATE)")"
+      worker_rotate="${worker_rotate:-1}"
       threshold="$(ask '单个代理失败几次后切换' "$(container_env LP_TSC_PROXY_FAILURE_THRESHOLD)")"
       threshold="${threshold:-1}"
       cooldown="$(ask '坏代理冷却秒数' "$(container_env LP_TSC_PROXY_COOLDOWN_SECS)")"
@@ -98,6 +100,7 @@ configure_proxy_failover() {
       args+=(
         --proxy-file "$proxy_file"
         --proxy-rotate "$rotate"
+        --proxy-worker-rotate "$worker_rotate"
         --proxy-failure-threshold "$threshold"
         --proxy-cooldown-secs "$cooldown"
       )
