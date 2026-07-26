@@ -178,8 +178,8 @@ EOF
     2) docker pull "$(ask '镜像' "$image_default")" ;;
     3) start_miner 0 ;;
     4) start_miner 1 ;;
-    5) docker stop lpminer ;;
-    6) docker restart lpminer ;;
+    5) docker stop --time 90 lpminer ;;
+    6) docker restart --time 90 lpminer ;;
     7) docker logs -f lpminer ;;
     8) prepare_bundle ;;
     9) bash "$script_dir/package-lpminer-ubuntu.sh" --output "$(ask '打包输出目录' "$HOME/lpminer-bundle")" ;;

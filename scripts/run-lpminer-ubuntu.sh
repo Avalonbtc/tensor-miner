@@ -146,6 +146,17 @@ minimum_shm_gib=4
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
 
 preserved_env=()
+stop_timeout_secs=90
+stop_and_remove_existing_container() {
+  local running
+  running="$(docker inspect --format '{{.State.Running}}' "$container_name")"
+  if [[ "$running" == true ]]; then
+    printf '[lpminer-run] stopping existing %s (up to %ss for a clean vLLM shutdown)\n' \
+      "$container_name" "$stop_timeout_secs"
+    docker stop --time "$stop_timeout_secs" "$container_name" >/dev/null
+  fi
+  docker rm "$container_name" >/dev/null
+}
 container_env_value() {
   docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null |
     sed -n "s/^${1}=//p" | head -n 1
@@ -175,7 +186,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
         preserved_env+=(--env "$key=$value")
     done
   fi
-  docker rm -f "$container_name" >/dev/null
+  stop_and_remove_existing_container
 fi
 
 extra_env=()
@@ -206,6 +217,7 @@ fi
 docker run -d \
   --name "$container_name" \
   --restart unless-stopped \
+  --stop-timeout "$stop_timeout_secs" \
   --gpus all \
   --shm-size="${shm_gib}g" \
   --mount type=volume,src=lpminer-models,dst=/models \

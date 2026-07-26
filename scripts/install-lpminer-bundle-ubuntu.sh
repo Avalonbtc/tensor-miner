@@ -26,6 +26,18 @@ volume_name=lpminer-models
 shm_gib=6
 replace=0
 replace_cache=0
+stop_timeout_secs=90
+
+stop_and_remove_existing_container() {
+  local running
+  running="$(docker inspect --format '{{.State.Running}}' "$container_name")"
+  if [[ "$running" == true ]]; then
+    printf '[lpminer-install] stopping existing %s (up to %ss for a clean vLLM shutdown)\n' \
+      "$container_name" "$stop_timeout_secs"
+    docker stop --time "$stop_timeout_secs" "$container_name" >/dev/null
+  fi
+  docker rm "$container_name" >/dev/null
+}
 
 while (($#)); do
   case "$1" in
@@ -75,7 +87,7 @@ minimum_shm_gib=4
 
 if docker container inspect "$container_name" >/dev/null 2>&1; then
   ((replace)) || die "container $container_name exists; use docker start $container_name or pass --replace"
-  docker rm -f "$container_name" >/dev/null
+  stop_and_remove_existing_container
 fi
 if docker volume inspect "$volume_name" >/dev/null 2>&1; then
   ((replace_cache)) || die "volume $volume_name exists; pass --replace-cache only if it is safe to erase"
@@ -98,6 +110,7 @@ printf '[lpminer-install] starting %s with LABEL=%s\n' "$container_name" "$label
 docker run -d \
   --name "$container_name" \
   --restart unless-stopped \
+  --stop-timeout "$stop_timeout_secs" \
   --gpus all \
   --shm-size="${shm_gib}g" \
   --mount type=volume,src="$volume_name",dst=/models \

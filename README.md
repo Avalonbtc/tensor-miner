@@ -64,9 +64,13 @@ miner again and use `--devices 0,1,2,3,4` for a five-card host. Re-run without
 Stop and restart an existing miner without re-entering parameters:
 
 ```bash
-docker stop lpminer
+docker stop -t 90 lpminer
 docker start lpminer
 ```
+
+The helper scripts also use a 90-second graceful stop when replacing a
+container and set Docker's persistent stop timeout to 90 seconds. This avoids
+turning a normal vLLM shutdown into `SIGKILL` / exit code 137.
 
 ## Add an IP-ban proxy list to a running miner
 
@@ -128,8 +132,10 @@ The target receives the image and `/models` cache, keeps the source wallet and
 pool, and starts with its new `LABEL`. The live GPU process is not migrated;
 the target starts a new process with the already-copied cache.
 
-Use `--replace` only when it is safe to remove the target's existing `lpminer`
-container and model-cache volume.
+Use `--replace` only when it is safe to replace the target's existing
+`lpminer` container. It waits up to 90 seconds for a clean shutdown; the model
+cache volume is retained unless `--replace-cache` is also supplied during a
+bundle restore.
 
 ## Prepare on a no-GPU VPS
 
