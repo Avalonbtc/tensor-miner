@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-image_default="avalonbtc/lpminer-tensorcash:1.1.1-overlay4"
+image_default="avalonbtc/lpminer-tensorcash:1.1.1-overlay5"
 pool_default="stratum+tls://eu.lproute.com:4160"
 
 pause() { read -rp '按 Enter 继续... ' _; }

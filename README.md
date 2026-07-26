@@ -1,6 +1,6 @@
 # Tensor miner Ubuntu scripts
 
-Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay4`.
+Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay5`.
 
 For the interactive version, run this single command after cloning the repo:
 

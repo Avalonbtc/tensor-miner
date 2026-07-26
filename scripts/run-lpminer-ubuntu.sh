@@ -21,7 +21,7 @@ EOF
 wallet=""
 label="$(hostname)"
 pool="stratum+tls://eu.lproute.com:4160"
-image="avalonbtc/lpminer-tensorcash:1.1.1-overlay4"
+image="avalonbtc/lpminer-tensorcash:1.1.1-overlay5"
 container_name=lpminer
 shm_gib=6
 replace=0
