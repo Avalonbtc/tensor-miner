@@ -37,12 +37,12 @@ bash scripts/run-lpminer-ubuntu.sh \
 
 ## CUDA Graph test for 12 GB FP8 cards
 
-The standard 12 GB FP8 profile uses eager mode for the safest memory behavior.
-The Chinese interactive menu now asks whether to enable an experimental CUDA
-Graph test when creating or replacing a miner. Select `y`, use `0.91` as the
-memory ratio, and enter `0` to validate one card first. The existing
-`lpminer-models` volume is preserved when the container is replaced, so the
-model is not downloaded again.
+Overlay4 enables CUDA Graphs and `torch.compile` by default for the 12 GB FP8
+profile. The Chinese interactive menu's normal `N` path therefore starts all
+available GPUs with the default graph-optimized profile. Select `y` only to
+use a conservative one-card test, then use `0.91` as the memory ratio and
+enter `0`. The existing `lpminer-models` volume is preserved when the
+container is replaced, so the model is not downloaded again.
 
 For a command-line test, use:
 

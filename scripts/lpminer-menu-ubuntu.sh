@@ -38,7 +38,7 @@ start_miner() {
   pool="$(ask '矿池地址' "${old_pool:-$pool_default}")"
   image="$(ask '镜像' "$image_default")"
   shm="$(ask '共享内存 GiB' "$(gpu_default_shm)")"
-  graph_mode="$(ask '启用 CUDA Graph 图优化测试？(y/N)' N)"
+  graph_mode="$(ask 'CUDA Graph 已默认开启；使用保守单卡测试参数？(y/N)' N)"
   case "$graph_mode" in
     y|Y|yes|YES)
       graph_mem="$(ask '图模式显存比例（12G 推荐 0.91）' 0.91)"
