@@ -48,7 +48,12 @@ done
 [[ "$shm_gib" =~ ^[0-9]+$ ]] && ((10#$shm_gib >= 4)) || die "shm-gib must be at least 4"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -n "$bundle" ]]; then
-  [[ -d "$bundle" && -f "$bundle/SHA256SUMS" ]] || die "--bundle must be a prepared bundle directory"
+  [[ -d "$bundle" ]] || die "--bundle must be a directory, not a .tar file: $bundle"
+  missing=()
+  for file in image.tar models.tar metadata.env SHA256SUMS install-lpminer-bundle-ubuntu.sh; do
+    [[ -f "$bundle/$file" ]] || missing+=("$file")
+  done
+  ((${#missing[@]} == 0)) || die "--bundle is incomplete (${missing[*]} missing). Create it first with menu 8 or 9."
   output_dir="$bundle"
 else
   if [[ -z "$output_dir" ]]; then

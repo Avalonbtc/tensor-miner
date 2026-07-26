@@ -65,12 +65,25 @@ prepare_bundle() {
   bash "$script_dir/prepare-lpminer-bundle-ubuntu.sh" --wallet "$wallet" --profile "$profile" --output "$output"
 }
 transfer_bundle() {
-  local bundle target label shm
-  bundle="$(ask '已准备好的 bundle 目录' "$HOME/lpminer-fp8-bundle")"
+  local source bundle target label shm args=()
+  source="$(ask '传输来源：1=自动打包当前运行矿机，2=使用已准备 bundle' 1)"
   target="$(ask '目标 SSH 用户@主机')"
   label="$(ask '目标矿工名' "$(hostname)-copy")"
   shm="$(ask '目标共享内存 GiB' 6)"
-  bash "$script_dir/transfer-lpminer-ubuntu.sh" --bundle "$bundle" --target "$target" --label "$label" --shm-gib "$shm"
+  case "$source" in
+    1)
+      ;;
+    2)
+      bundle="$(ask 'bundle 目录（必须含 image.tar、models.tar、SHA256SUMS）' "$HOME/lpminer-fp8-bundle")"
+      args+=(--bundle "$bundle")
+      ;;
+    *)
+      printf '无效选择，未开始传输。\n'
+      return
+      ;;
+  esac
+  bash "$script_dir/transfer-lpminer-ubuntu.sh" \
+    --target "$target" --label "$label" --shm-gib "$shm" "${args[@]}"
 }
 install_bundle() {
   local bundle label shm
@@ -93,7 +106,7 @@ while true; do
 7) 实时查看矿机日志
 8) 在无 GPU VPS 预下载镜像和模型
 9) 打包当前已正常运行的矿机
-10) 将已准备好的 bundle 迁移到另一台 Ubuntu
+10) 自动打包或迁移 bundle 到另一台 Ubuntu
 11) 在本 GPU 服务器恢复并安装 bundle
 0) 退出
 EOF
