@@ -41,7 +41,7 @@ start_miner() {
   graph_mode="$(ask '启用 CUDA Graph 图优化测试？(y/N)' N)"
   case "$graph_mode" in
     y|Y|yes|YES)
-      graph_mem="$(ask '图模式显存比例（12G 推荐 0.90）' 0.90)"
+      graph_mem="$(ask '图模式显存比例（12G 推荐 0.91）' 0.91)"
       graph_devices="$(ask '测试 GPU（0=仅第1张，all=全部）' 0)"
       args+=(--cuda-graphs --gpu-memory-utilization "$graph_mem")
       if [[ "$graph_devices" != all ]]; then

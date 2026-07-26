@@ -8,12 +8,13 @@ usage() {
 Usage:
   run-lpminer-ubuntu.sh --wallet tc1... [--label rig01] [--pool URL] \
     [--image IMAGE:TAG] [--name lpminer] [--shm-gib 6] [--replace] \
-    [--cuda-graphs] [--gpu-memory-utilization 0.90] [--devices 0,1]
+    [--cuda-graphs] [--gpu-memory-utilization 0.91] [--devices 0,1]
 
 For four or more GPUs, --shm-gib must be at least 16.
 
 --cuda-graphs is an experimental FP8 optimization. It removes --enforce-eager
-and enables vLLM CUDA Graph capture sizes 1,2,4,8,16,32.
+and enables vLLM CUDA Graph capture sizes 1,2,4,8,16,32. On 12 GB cards,
+use 0.91 or higher to retain enough KV cache for a 2048-token context.
 EOF
 }
 
