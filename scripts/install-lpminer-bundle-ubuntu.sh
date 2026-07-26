@@ -52,7 +52,11 @@ for file in image.tar models.tar metadata.env SHA256SUMS; do
   [[ -f "$bundle/$file" ]] || die "bundle is missing $file"
 done
 
-(cd "$bundle" && sha256sum -c SHA256SUMS)
+if ! (cd "$bundle" && sha256sum --check --strict SHA256SUMS); then
+  printf '%s\n' '[lpminer-install] Bundle integrity check failed; no image or model data was imported.' >&2
+  printf '%s\n' '[lpminer-install] Re-transfer the bundle from its source with menu 10, or rerun rsync with --append-verify.' >&2
+  exit 2
+fi
 image="$(sed -n 's/^IMAGE=//p' "$bundle/metadata.env" | head -n 1)"
 [[ -n "$wallet" ]] || wallet="$(sed -n 's/^WALLET=//p' "$bundle/metadata.env" | head -n 1)"
 [[ -n "$pool" ]] || pool="$(sed -n 's/^POOL=//p' "$bundle/metadata.env" | head -n 1)"
