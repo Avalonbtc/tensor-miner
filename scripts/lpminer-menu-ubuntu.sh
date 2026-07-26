@@ -29,9 +29,6 @@ gpu_default_shm() {
   fi
   ((count >= 4)) && printf '16' || printf '6'
 }
-container_image() {
-  docker inspect --format '{{.Config.Image}}' lpminer 2>/dev/null || true
-}
 container_shm_gib() {
   local bytes
   bytes="$(docker inspect --format '{{.HostConfig.ShmSize}}' lpminer 2>/dev/null || true)"
@@ -79,7 +76,7 @@ configure_proxy_failover() {
   wallet="$(container_env WALLET)"
   label="$(container_env LABEL)"
   pool="$(container_env POOL)"
-  image="$(container_image)"
+  image="$(ask '镜像（建议使用 overlay5）' "$image_default")"
   shm="$(container_shm_gib)"
   [[ -n "$wallet" && -n "$label" && -n "$pool" && -n "$image" ]] || {
     printf '无法读取当前矿机的完整启动参数，未进行修改。\n'
