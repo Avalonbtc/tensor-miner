@@ -32,7 +32,7 @@ EOF
 wallet=""
 label="$(hostname)"
 pool="stratum+tls://eu.lproute.com:4160"
-image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
+image="avalonbtc/nqminer-tensorcash-overlay1:latest"
 container_name=lpminer
 shm_gib=6
 replace=0

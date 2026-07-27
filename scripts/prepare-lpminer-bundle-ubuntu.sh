@@ -18,7 +18,7 @@ wallet=""
 output_dir=""
 profile=fp8
 pool="stratum+tls://eu.lproute.com:4160"
-image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
+image="avalonbtc/nqminer-tensorcash-overlay1:latest"
 while (($#)); do
   case "$1" in
     --wallet) wallet="${2:-}"; shift 2 ;;

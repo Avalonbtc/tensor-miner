@@ -1,6 +1,9 @@
 # Tensor miner Ubuntu scripts
 
-Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay6`.
+Ubuntu helper scripts for `avalonbtc/nqminer-tensorcash-overlay1:latest`.
+
+The default image is the flattened 1.1.5 overlay. Its internal image labels
+identify the 1.1.5 upstream base and the `1.1.5-overlay1` build.
 
 For the interactive version, run this single command after cloning the repo:
 
@@ -37,8 +40,8 @@ bash scripts/run-lpminer-ubuntu.sh \
 
 ## CUDA Graph test for 12 GB FP8 cards
 
-Overlay5 enables CUDA Graphs and `torch.compile` by default for the 12 GB FP8
-profile. The Chinese interactive menu's normal `N` path therefore starts all
+Overlay1 retains the 1.1.5 FP8 profile. The Chinese interactive menu's normal
+`N` path therefore starts all
 available GPUs with the default graph-optimized profile. Select `y` only to
 use a conservative one-card test, then use `0.91` as the memory ratio and
 enter `0`. The existing `lpminer-models` volume is preserved when the
