@@ -2,8 +2,16 @@
 
 Ubuntu helper scripts for `avalonbtc/nqminer-tensorcash-overlay1:latest`.
 
-The default image is the flattened 1.1.5 overlay. Its internal image labels
-identify the 1.1.5 upstream base and the `1.1.5-overlay1` build.
+The default image is the layer-compatible 1.1.5 overlay. It keeps the official
+1.1.5 image as its parent, so machines holding 1.1.1-overlay6 reuse every
+shared official layer and download only the official 1.1.5 delta plus the
+compiled nqminer patch layers. Its internal labels identify the 1.1.5 upstream
+base and the `1.1.5-overlay1` build. The currently published release digest is
+`sha256:7dff24024483b286970cb81357b72e39c63aebf5b15cc22d4b806c2c01a460aa`.
+
+Every normal or replacement launch now runs `docker pull` before it recreates
+the container. This makes the mutable `:latest` tag update reliably while
+preserving the local `lpminer-models` cache volume.
 
 For the interactive version, run this single command after cloning the repo:
 
@@ -41,11 +49,10 @@ bash scripts/run-lpminer-ubuntu.sh \
 ## CUDA Graph test for 12 GB FP8 cards
 
 Overlay1 retains the 1.1.5 FP8 profile. The Chinese interactive menu's normal
-`N` path therefore starts all
-available GPUs with the default graph-optimized profile. Select `y` only to
-use a conservative one-card test, then use `0.91` as the memory ratio and
-enter `0`. The existing `lpminer-models` volume is preserved when the
-container is replaced, so the model is not downloaded again.
+`N` path therefore starts all available GPUs with the default graph-optimized
+profile. Select `y` only to force the graph variables explicitly for a
+one-card comparison. The existing `lpminer-models` volume is preserved when
+the container is replaced, so the model is not downloaded again.
 
 For a command-line test, use:
 
@@ -61,8 +68,8 @@ bash scripts/run-lpminer-ubuntu.sh \
 ```
 
 After a stable 5-minute comparison of accepted shares and proof/s, replace the
-miner again and use `--devices 0,1,2,3,4` for a five-card host. Re-run without
-`--cuda-graphs` to restore stable eager mode.
+miner again and use `--devices 0,1,2,3,4` for a five-card host. Use
+`--enforce-eager` only when a compatibility fallback is required.
 
 Stop and restart an existing miner without re-entering parameters:
 

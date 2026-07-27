@@ -8,7 +8,7 @@ usage() {
 Usage:
   run-lpminer-ubuntu.sh --wallet tc1... [--label rig01] [--pool URL] \
     [--image IMAGE:TAG] [--name lpminer] [--shm-gib 6] [--replace] \
-    [--cuda-graphs] [--gpu-memory-utilization 0.91] [--devices 0,1] \
+    [--cuda-graphs|--enforce-eager] [--gpu-memory-utilization 0.91] [--devices 0,1] \
     [--proxy-file /path/proxies.txt] [--proxy-pool URI,...] \
     [--proxy-rotate sequential|random] \
     [--proxy-worker-rotate 0|1] \
@@ -17,9 +17,9 @@ Usage:
 
 For four or more GPUs, --shm-gib must be at least 16.
 
---cuda-graphs is an experimental FP8 optimization. It removes --enforce-eager
-and enables vLLM CUDA Graph capture sizes 1,2,4,8,16,32. On 12 GB cards,
-use 0.91 or higher to retain enough KV cache for a 2048-token context.
+CUDA Graph is enabled by default for the FP8 profile. --enforce-eager is the
+explicit compatibility fallback; it disables graph capture for the next start.
+--cuda-graphs is accepted as an explicit request for the default graph mode.
 
 --proxy-file reads one SOCKS5 proxy per line in IP:port:user:password format
 and enables optional IP-ban proxy failover. --proxy-pool remains available for
@@ -36,7 +36,7 @@ image="avalonbtc/nqminer-tensorcash-overlay1:latest"
 container_name=lpminer
 shm_gib=6
 replace=0
-cuda_graphs=0
+cuda_graphs=1
 gpu_memory_utilization=""
 devices=""
 proxy_pool=""
@@ -57,6 +57,7 @@ while (($#)); do
     --shm-gib) shm_gib="${2:-}"; shift 2 ;;
     --replace) replace=1; shift ;;
     --cuda-graphs) cuda_graphs=1; shift ;;
+    --enforce-eager) cuda_graphs=0; shift ;;
     --gpu-memory-utilization) gpu_memory_utilization="${2:-}"; shift 2 ;;
     --devices) devices="${2:-}"; shift 2 ;;
     --proxy-file) proxy_file="${2:-}"; shift 2 ;;
@@ -145,6 +146,12 @@ minimum_shm_gib=4
 ((gpu_count >= 4)) && minimum_shm_gib=16
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
 
+# Resolve the requested tag before replacing an existing working container.
+# For the layer-compatible 1.1.5 image, Docker reuses the cached 1.1.1 base
+# layers and downloads only missing official/overlay layers.
+printf '[lpminer-run] pulling image updates: %s\n' "$image"
+docker pull "$image"
+
 preserved_env=()
 stop_timeout_secs=90
 stop_and_remove_existing_container() {
@@ -177,7 +184,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
       case "$key" in
         CUDA_VISIBLE_DEVICES) [[ -n "$devices" ]] && continue ;;
         LP_TSC_GPU_MEMORY_UTILIZATION) [[ -n "$gpu_memory_utilization" ]] && continue ;;
-        LP_TSC_FP8_ENFORCE_EAGER|LP_TSC_CUDA_GRAPH_SIZES) ((cuda_graphs)) && continue ;;
+        LP_TSC_FP8_ENFORCE_EAGER|LP_TSC_CUDA_GRAPH_SIZES) continue ;;
         LP_TSC_STRATUM_FAILOVER|LP_TSC_PROXY_POOL|LP_TSC_PROXY_SOURCE_FILE|LP_TSC_PROXY_ROTATE|LP_TSC_PROXY_WORKER_ROTATE|LP_TSC_PROXY_FAILURE_THRESHOLD|LP_TSC_PROXY_COOLDOWN_SECS)
           [[ -n "$proxy_pool" || "$disable_proxy_failover" == 1 ]] && continue ;;
       esac
@@ -195,6 +202,8 @@ if ((cuda_graphs)); then
     --env 'LP_TSC_FP8_ENFORCE_EAGER=0'
     --env 'LP_TSC_CUDA_GRAPH_SIZES=1,2,4,8,16,32'
   )
+else
+  extra_env+=(--env 'LP_TSC_FP8_ENFORCE_EAGER=1')
 fi
 [[ -z "$gpu_memory_utilization" ]] ||
   extra_env+=(--env "LP_TSC_GPU_MEMORY_UTILIZATION=$gpu_memory_utilization")
@@ -233,5 +242,7 @@ docker ps --filter "name=^/${container_name}$" --format 'table {{.Names}}\t{{.St
 docker logs --tail 20 "$container_name" || true
 printf '[lpminer-run] started. Follow logs with: docker logs -f %s\n' "$container_name"
 if ((cuda_graphs)); then
-  printf '[lpminer-run] CUDA Graph test enabled; compare accepted shares and 5-minute average proof/s before keeping it.\n'
+  printf '[lpminer-run] CUDA Graph mode enabled. Compare accepted shares and 5-minute average proof/s after an update.\n'
+else
+  printf '[lpminer-run] eager compatibility mode enabled; CUDA Graph capture is disabled.\n'
 fi
