@@ -16,6 +16,10 @@ preserving the local `lpminer-models` cache volume.
 The current image entrypoint resolves its packaged application directory
 internally, including after an offline bundle restore.
 
+The launcher uses the Responses API polling mode by default. This is required
+for the 1.1.5 FP8 proof callback to reach the miner; `response=poll` in the
+startup log and a subsequent `share accepted` confirm the active path.
+
 For the interactive version, run this single command after cloning the repo:
 
 ```bash

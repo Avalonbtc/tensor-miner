@@ -196,7 +196,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
   stop_and_remove_existing_container
 fi
 
-extra_env=()
+extra_env=(--env 'LP_TSC_RESPONSE_MODE=poll')
 if ((cuda_graphs)); then
   extra_env+=(
     --env 'LP_TSC_FP8_ENFORCE_EAGER=0'
