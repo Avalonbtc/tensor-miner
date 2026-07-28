@@ -7,7 +7,7 @@ The default image is the layer-compatible 1.1.5 overlay. It keeps the official
 shared official layer and download only the official 1.1.5 delta plus the
 compiled nqminer patch layers. Its internal labels identify the 1.1.5 upstream
 base and the `1.1.5-overlay1` build. The currently published release digest is
-`sha256:3af383803d5f6f7ecfb4c294a936d9fcde13533f09bec50b902212c880972305`.
+`sha256:0f1beca5949b5b59521b11aa5e1d5153cfe682db5da9c88402fd090fad1fbd17`.
 
 Every normal or replacement launch now runs `docker pull` before it recreates
 the container. This makes the mutable `:latest` tag update reliably while
