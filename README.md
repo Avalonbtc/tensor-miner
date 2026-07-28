@@ -7,7 +7,7 @@ The default image is the layer-compatible 1.1.5 overlay. It keeps the official
 shared official layer and download only the official 1.1.5 delta plus the
 compiled nqminer patch layers. Its internal labels identify the 1.1.5 upstream
 base and the `1.1.5-overlay1` build. The currently published release digest is
-`sha256:0f1beca5949b5b59521b11aa5e1d5153cfe682db5da9c88402fd090fad1fbd17`.
+`sha256:075f95d12c2e81edf23668e2b0dd0ed6c682671fcb8bc01350a096c280aab96f`.
 
 Every normal or replacement launch now runs `docker pull` before it recreates
 the container. This makes the mutable `:latest` tag update reliably while
@@ -19,6 +19,10 @@ internally, including after an offline bundle restore.
 The launcher uses the Responses API polling mode by default. This is required
 for the 1.1.5 FP8 proof callback to reach the miner; `response=poll` in the
 startup log and a subsequent `share accepted` confirm the active path.
+
+The 16 GiB FP8 plan keeps its larger 8192-token context and 0.90 memory budget,
+but uses the validated `32 / 40` batch and in-flight limits. The prior `64 / 80`
+combination could report completed windows without yielding submitted shares.
 
 For the interactive version, run this single command after cloning the repo:
 
