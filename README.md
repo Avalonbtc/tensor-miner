@@ -13,9 +13,8 @@ Every normal or replacement launch now runs `docker pull` before it recreates
 the container. This makes the mutable `:latest` tag update reliably while
 preserving the local `lpminer-models` cache volume.
 
-Both normal launches and offline-bundle restores explicitly use the image app
-directory (`/opt/lpminer/app`). This prevents an empty updater work directory
-from hiding the packaged miner binary after an image import.
+The current image entrypoint resolves its packaged application directory
+internally, including after an offline bundle restore.
 
 For the interactive version, run this single command after cloning the repo:
 

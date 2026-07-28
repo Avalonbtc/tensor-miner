@@ -117,10 +117,6 @@ docker run -d \
   --env "WALLET=$wallet" \
   --env "LABEL=$label" \
   --env "POOL=$pool" \
-  --env 'LP_TSC_APP_DIR=/opt/lpminer/app' \
-  --env 'LP_TSC_RUNTIME_DIR=/opt/lpminer/app/tensorcash-runtime' \
-  --env 'LP_TSC_IMAGE_APP=/opt/lpminer/app' \
-  --env 'LP_TSC_AUTO_UPDATE=0' \
   "$image" >/dev/null
 
 sleep 2
