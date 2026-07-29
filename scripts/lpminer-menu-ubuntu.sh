@@ -135,7 +135,7 @@ transfer_bundle() {
     1)
       ;;
     2)
-      bundle="$(ask 'bundle 目录（必须含 image.tar、models.tar、SHA256SUMS）' "$HOME/lpminer-fp8-bundle")"
+      bundle="$(ask 'bundle 目录（必须含 image.tar、models.tar、tensor-miner.tar、SHA256SUMS）' "$HOME/lpminer-fp8-bundle")"
       args+=(--bundle "$bundle")
       ;;
     *)

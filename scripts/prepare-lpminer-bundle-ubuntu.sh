@@ -42,6 +42,12 @@ docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
 output_parent="$(dirname "$output_dir")"
 mkdir -p "$output_parent"
 output_dir="$(cd "$output_parent" && pwd)/$(basename "$output_dir")"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd "$script_dir/.." && pwd)"
+repo_parent="$(dirname "$repo_dir")"
+repo_name="$(basename "$repo_dir")"
+[[ "$output_dir/" != "$repo_dir/"* ]] ||
+  die "--output must be outside the tensor-miner checkout"
 if [[ -e "$output_dir" ]]; then
   [[ -d "$output_dir" ]] || die "output exists but is not a directory: $output_dir"
   [[ -z "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || die "output directory must be empty"
@@ -74,6 +80,9 @@ docker run --rm --entrypoint /bin/sh \
   --mount type=bind,src="$output_dir",dst=/bundle \
   "$image" -c 'tar -C /models -cf /bundle/models.tar .'
 
+printf '[lpminer-prepare] archiving tensor-miner checkout and .git metadata\n'
+tar -C "$repo_parent" -cf "$output_dir/tensor-miner.tar" "$repo_name"
+
 cat >"$output_dir/metadata.env" <<EOF
 IMAGE=$image
 WALLET=$wallet
@@ -83,6 +92,6 @@ SOURCE_CONTAINER=preloaded-no-gpu-vps
 EOF
 install -m 700 "$(dirname "$0")/install-lpminer-bundle-ubuntu.sh" \
   "$output_dir/install-lpminer-bundle-ubuntu.sh"
-(cd "$output_dir" && sha256sum image.tar models.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
+(cd "$output_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
 du -sh "$output_dir"
 printf '[lpminer-prepare] bundle ready: %s\n' "$output_dir"

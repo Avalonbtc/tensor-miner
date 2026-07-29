@@ -27,6 +27,11 @@ Each mining host needs Docker, an NVIDIA driver, and NVIDIA Container Toolkit.
 The image uses a persistent Docker volume named `lpminer-models` for model
 cache. At least 12 GB of VRAM is required.
 
+Every newly created bundle also includes `tensor-miner.tar`: the complete
+checkout with `.git`, every helper script, and the Chinese menu. Transfer
+restores it to `~/tensor-miner` on the target and backs up an older target
+checkout with a timestamp before replacement.
+
 ## Start one miner
 
 ```bash
@@ -133,8 +138,8 @@ bash scripts/transfer-lpminer-ubuntu.sh \
 In the Chinese menu, option `10` now offers `1` to package the currently
 running `lpminer` automatically, or `2` to use a prepared bundle from option
 `8` or `9`. A prepared bundle is a directory containing `image.tar`,
-`models.tar`, `metadata.env`, `SHA256SUMS`, and the installer; do not enter a
-single `.tar` file or an empty download directory.
+`models.tar`, `tensor-miner.tar`, `metadata.env`, `SHA256SUMS`, and the
+installer; do not enter a single `.tar` file or an empty download directory.
 
 The target receives the image and `/models` cache, keeps the source wallet and
 pool, and starts with its new `LABEL`. The live GPU process is not migrated;

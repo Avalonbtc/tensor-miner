@@ -50,7 +50,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -n "$bundle" ]]; then
   [[ -d "$bundle" ]] || die "--bundle must be a directory, not a .tar file: $bundle"
   missing=()
-  for file in image.tar models.tar metadata.env SHA256SUMS install-lpminer-bundle-ubuntu.sh; do
+  for file in image.tar models.tar tensor-miner.tar metadata.env SHA256SUMS install-lpminer-bundle-ubuntu.sh; do
     [[ -f "$bundle/$file" ]] || missing+=("$file")
   done
   ((${#missing[@]} == 0)) || die "--bundle is incomplete (${missing[*]} missing). Create it first with menu 8 or 9."
@@ -79,7 +79,7 @@ remote_verify_command="cd $(printf '%q' "$remote_dir") && sha256sum --check --st
 ssh -p "$port" "$target" "$remote_verify_command" ||
   die "target bundle integrity check failed; rerun the transfer to repair it"
 
-remote_command="bash $(printf '%q' "$remote_dir/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_dir") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib")"
+remote_command="bash $(printf '%q' "$remote_dir/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_dir") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib") --replace-repo"
 if ((replace)); then remote_command+=" --replace --replace-cache"; fi
 ssh -p "$port" "$target" "$remote_command"
 printf '[lpminer-transfer] complete. Local bundle kept at: %s\n' "$output_dir"
