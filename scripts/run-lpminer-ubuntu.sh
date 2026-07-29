@@ -32,7 +32,7 @@ EOF
 wallet=""
 label="$(hostname)"
 pool="stratum+tls://eu.lproute.com:4160"
-image="avalonbtc/nqminer-tensorcash-overlay1:latest"
+image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
 container_name=lpminer
 shm_gib=6
 replace=0
@@ -147,8 +147,6 @@ minimum_shm_gib=4
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
 
 # Resolve the requested tag before replacing an existing working container.
-# For the layer-compatible 1.1.5 image, Docker reuses the cached 1.1.1 base
-# layers and downloads only missing official/overlay layers.
 printf '[lpminer-run] pulling image updates: %s\n' "$image"
 docker pull "$image"
 

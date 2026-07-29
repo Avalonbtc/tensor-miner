@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-image_default="avalonbtc/nqminer-tensorcash-overlay1:latest"
+image_default="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
 pool_default="stratum+tls://eu.lproute.com:4160"
 
 pause() { read -rp '按 Enter 继续... ' _; }
@@ -76,7 +76,7 @@ configure_proxy_failover() {
   wallet="$(container_env WALLET)"
   label="$(container_env LABEL)"
   pool="$(container_env POOL)"
-  image="$(ask '镜像（建议使用 overlay1）' "$image_default")"
+  image="$(ask '镜像（建议使用 1.1.1-overlay6）' "$image_default")"
   shm="$(container_shm_gib)"
   [[ -n "$wallet" && -n "$label" && -n "$pool" && -n "$image" ]] || {
     printf '无法读取当前矿机的完整启动参数，未进行修改。\n'

@@ -1,28 +1,15 @@
 # Tensor miner Ubuntu scripts
 
-Ubuntu helper scripts for `avalonbtc/nqminer-tensorcash-overlay1:latest`.
+Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay6`.
 
-The default image is the layer-compatible 1.1.5 overlay. It keeps the official
-1.1.5 image as its parent, so machines holding 1.1.1-overlay6 reuse every
-shared official layer and download only the official 1.1.5 delta plus the
-compiled nqminer patch layers. Its internal labels identify the 1.1.5 upstream
-base and the `1.1.5-overlay1` build. The currently published release digest is
-`sha256:075f95d12c2e81edf23668e2b0dd0ed6c682671fcb8bc01350a096c280aab96f`.
+The default image is the validated `1.1.1-overlay6` release. It is used by all
+normal launches, offline preparation bundles, and the interactive menu unless
+an explicit `--image` value is supplied.
 
-Every normal or replacement launch now runs `docker pull` before it recreates
-the container. This makes the mutable `:latest` tag update reliably while
-preserving the local `lpminer-models` cache volume.
+Every normal or replacement launch runs `docker pull` before it recreates the
+container while preserving the local `lpminer-models` cache volume.
 
-The current image entrypoint resolves its packaged application directory
-internally, including after an offline bundle restore.
-
-The launcher uses the Responses API polling mode by default. This is required
-for the 1.1.5 FP8 proof callback to reach the miner; `response=poll` in the
-startup log and a subsequent `share accepted` confirm the active path.
-
-The 16 GiB FP8 plan keeps its larger 8192-token context and 0.90 memory budget,
-but uses the validated `32 / 40` batch and in-flight limits. The prior `64 / 80`
-combination could report completed windows without yielding submitted shares.
+The image retains its application layout after an offline bundle restore.
 
 For the interactive version, run this single command after cloning the repo:
 
@@ -59,7 +46,7 @@ bash scripts/run-lpminer-ubuntu.sh \
 
 ## CUDA Graph test for 12 GB FP8 cards
 
-Overlay1 retains the 1.1.5 FP8 profile. The Chinese interactive menu's normal
+Overlay6 retains the validated FP8 profile. The Chinese interactive menu's normal
 `N` path therefore starts all available GPUs with the default graph-optimized
 profile. Select `y` only to force the graph variables explicitly for a
 one-card comparison. The existing `lpminer-models` volume is preserved when
