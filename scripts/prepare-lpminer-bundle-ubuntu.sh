@@ -88,6 +88,9 @@ run_with_retry() {
     if ((download_retries != 0 && attempt >= download_retries)); then
       die "$description failed after $attempt attempt(s); rerun this command to resume from the cached chunks"
     fi
+    if [[ "$description" == pulling\ image* ]] && ((attempt >= 3 && attempt % 3 == 0)); then
+      printf '[lpminer-prepare] repeated image-layer EOF: stop this loop and run scripts/configure-docker-pull-ubuntu.sh, then restart option 8\n' >&2
+    fi
     delay=$((attempt * 10))
     ((delay > 300)) && delay=300
     printf '[lpminer-prepare] connection failed; preserving cache and retrying in %ss (Ctrl-C is safe)\n' "$delay" >&2

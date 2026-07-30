@@ -38,6 +38,11 @@ and a later rerun continues from the cached chunks. Pressing `Ctrl-C` is safe.
 Use `--download-retries N` only when a finite retry limit is wanted; `0` is the
 default and retries indefinitely.
 
+For repeated `short read ... unexpected EOF` errors while pulling the large
+Docker image layer, select menu option `13` once, then rerun option `8`. It
+sets Docker to one concurrent layer download and raises its per-pull retry
+limit without replacing existing daemon settings.
+
 ## Start one miner
 
 ```bash

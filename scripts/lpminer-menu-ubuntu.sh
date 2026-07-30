@@ -170,6 +170,7 @@ while true; do
 10) 自动打包或迁移 bundle 到另一台 Ubuntu
 11) 在本 GPU 服务器恢复并安装 bundle
 12) 读取 S5 代理 txt 并配置 IP ban 切换（保留模型缓存并重建矿机）
+13) 修复 Docker Hub 大镜像断线下载
 0) 退出
 EOF
   read -rp '请选择：' selection
@@ -186,6 +187,7 @@ EOF
     10) transfer_bundle ;;
     11) install_bundle ;;
     12) configure_proxy_failover ;;
+    13) bash "$script_dir/configure-docker-pull-ubuntu.sh" ;;
     0) exit 0 ;;
     *) printf '无效选择，请重新输入。\n' ;;
   esac
