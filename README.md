@@ -58,27 +58,26 @@ limit without replacing existing daemon settings.
 
 Menu option `14` uploads an existing `.tar.gz` archive. Options `8` and `9`
 also ask whether to upload immediately after a successful bundle is created.
-Store the Quark browser cookie in a private local file; it is ignored by Git:
-
-```bash
-mkdir -p ~/.config/tensor-miner
-chmod 700 ~/.config/tensor-miner
-printf '%s' 'YOUR_QUARK_COOKIE' > ~/.config/tensor-miner/quark.cookie
-chmod 600 ~/.config/tensor-miner/quark.cookie
-```
+Paste the Quark browser cookie only when the menu asks for it; the terminal
+input is hidden and the cookie is piped to the uploader rather than saved to a
+file or passed on the command line. Option `14` also accepts an unfinished
+`.work` folder when a source VPS lacks enough space to build its `.tar.gz`.
 
 The uploader uses the selected Quark parent directory ID (`0` means root),
 streams each multipart upload from disk, and records completed part ETags in
-`<bundle>.quark-upload-state.json`. Re-run option `14` after a network break to
-resume the unfinished parts. The state file and cookie are never committed.
+`<bundle>.quark-upload-state.json`. Directory uploads retain a separate
+`<folder>.quark-folder-state.json` beside the source folder. Re-run option
+`14` after a network break to resume unfinished parts. State files are ignored
+by Git.
 
 For non-interactive use:
 
 ```bash
-python3 scripts/upload-quark-bundle.py \
+read -rsp 'Quark Cookie: ' cookie; printf '\n'
+printf '%s' "$cookie" | python3 scripts/upload-quark-bundle.py \
   --file ~/lpminer-bf16-bundle.tar.gz \
-  --cookie-file ~/.config/tensor-miner/quark.cookie \
-  --parent-id 0
+  --cookie-stdin --parent-id 0
+unset cookie
 ```
 
 ## Start one miner

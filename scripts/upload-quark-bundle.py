@@ -9,6 +9,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import subprocess
 import sys
 import time
 import xml.sax.saxutils
@@ -121,6 +122,16 @@ class QuarkDrive:
     def finish(self, pre: dict[str, Any]) -> None:
         data = pre["data"]
         self.api("/file/upload/finish", {"obj_key": data["obj_key"], "task_id": data["task_id"]})
+
+    def create_folder(self, name: str, parent_id: str) -> str:
+        response = self.api(
+            "/file",
+            {"pdir_fid": parent_id, "file_name": name, "dir_path": "", "dir_init_lock": False},
+        )
+        fid = str(response.get("data", {}).get("fid") or "")
+        if not fid:
+            raise UploadError(f"创建远程目录未返回 fid：{name}")
+        return fid
 
     def create_share(self, fid: str, title: str) -> tuple[str, str]:
         response = self.api(
@@ -276,10 +287,83 @@ def commit(client: QuarkDrive, pre: dict[str, Any], etags: dict[str, str]) -> No
     response.raise_for_status()
 
 
+def upload_directory(
+    client: QuarkDrive,
+    cookie: str,
+    directory: Path,
+    parent_id: str,
+    state_path: Path,
+    share: bool,
+    share_title: str | None,
+) -> int:
+    state = load_json(state_path) or {}
+    if state.get("source") != str(directory) or state.get("parent_id") != parent_id:
+        state = {"source": str(directory), "parent_id": parent_id, "dirs": {}, "completed": []}
+    dirs = {str(key): str(value) for key, value in state.get("dirs", {}).items()}
+    if "." not in dirs:
+        dirs["."] = client.create_folder(directory.name, parent_id)
+        state["dirs"] = dirs
+        save_json(state_path, state)
+    root_fid = dirs["."]
+    completed = set(str(item) for item in state.get("completed", []))
+    state_dir = state_path.with_name(state_path.name + ".parts")
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(state_dir, 0o700)
+
+    for current, child_dirs, files in os.walk(directory):
+        child_dirs.sort()
+        files.sort()
+        current_path = Path(current)
+        relative_dir = str(current_path.relative_to(directory)) if current_path != directory else "."
+        current_fid = dirs[relative_dir]
+        for child in child_dirs:
+            child_relative = child if relative_dir == "." else f"{relative_dir}/{child}"
+            if child_relative not in dirs:
+                dirs[child_relative] = client.create_folder(child, current_fid)
+                state["dirs"] = dirs
+                save_json(state_path, state)
+        for name in files:
+            file_path = current_path / name
+            relative_file = name if relative_dir == "." else f"{relative_dir}/{name}"
+            if relative_file in completed:
+                continue
+            token = hashlib.sha256(relative_file.encode("utf-8")).hexdigest()
+            child_state = state_dir / f"{token}.json"
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--file",
+                str(file_path),
+                "--cookie-stdin",
+                "--parent-id",
+                current_fid,
+                "--state-file",
+                str(child_state),
+            ]
+            print(f"[quark-upload] uploading {relative_file}", flush=True)
+            result = subprocess.run(command, input=cookie, text=True)
+            if result.returncode != 0:
+                raise UploadError(f"directory upload stopped at: {relative_file}")
+            completed.add(relative_file)
+            state["completed"] = sorted(completed)
+            save_json(state_path, state)
+    print(f"[quark-upload] directory upload complete: {directory.name}", flush=True)
+    if share:
+        url, passcode = client.create_share(root_fid, share_title or directory.name)
+        print(f"[quark-upload] share URL: {url}", flush=True)
+        if passcode:
+            print(f"[quark-upload] share password: {passcode}", flush=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="可断点续传地上传 lpminer bundle 到夸克网盘")
     parser.add_argument("--file", required=True, type=Path)
-    parser.add_argument("--cookie-file", required=True, type=Path)
+    parser.add_argument(
+        "--cookie-stdin",
+        action="store_true",
+        help="从标准输入读取一次夸克 Cookie，避免写入磁盘或命令行参数",
+    )
     parser.add_argument("--parent-id", default="0")
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--share", action="store_true")
@@ -287,14 +371,29 @@ def main() -> int:
     args = parser.parse_args()
 
     path = args.file.expanduser().resolve()
-    cookie_file = args.cookie_file.expanduser()
-    if not path.is_file():
-        raise UploadError(f"文件不存在：{path}")
-    cookie = cookie_file.read_text(encoding="utf-8").strip()
+    if not args.cookie_stdin:
+        raise UploadError("请使用 --cookie-stdin 并通过标准输入粘贴 Cookie")
+    cookie = sys.stdin.read().strip()
     if not cookie:
         raise UploadError("Cookie 文件为空")
     if not args.parent_id:
         raise UploadError("parent-id 不能为空")
+    if not path.exists():
+        raise UploadError(f"文件或目录不存在：{path}")
+    client = QuarkDrive(cookie)
+    if path.is_dir():
+        state_path = (args.state_file or path.with_name(path.name + ".quark-folder-state.json")).expanduser()
+        return upload_directory(
+            client,
+            cookie,
+            path,
+            args.parent_id,
+            state_path,
+            args.share,
+            args.share_title,
+        )
+    if not path.is_file():
+        raise UploadError(f"不是常规文件：{path}")
     state_path = (args.state_file or path.with_name(path.name + ".quark-upload-state.json")).expanduser()
     size = path.stat().st_size
     print(f"[quark-upload] 计算文件哈希：{path.name} ({size / 1024**3:.2f} GiB)", flush=True)
@@ -309,7 +408,6 @@ def main() -> int:
         and state.get("parent_id") == args.parent_id
         and isinstance(state.get("pre"), dict)
     )
-    client = QuarkDrive(cookie)
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
     if valid_state:

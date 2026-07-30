@@ -134,26 +134,27 @@ package_bundle() {
 }
 quark_upload_prompt() {
   local bundle="$1" enable cookie parent share args=()
-  [[ -f "$bundle" ]] || {
+  [[ -e "$bundle" ]] || {
     printf '未找到可上传的 bundle：%s\n' "$bundle" >&2
     return
   }
   enable="$(ask '上传到夸克网盘？(y/N)' N)"
   case "$enable" in
     y|Y|yes|YES)
-      cookie="$(ask '夸克 Cookie 文件路径' "$HOME/.config/tensor-miner/quark.cookie")"
       parent="$(ask '夸克目标目录 ID（0 为根目录）' 0)"
       share="$(ask '上传后创建分享链接？(y/N)' N)"
-      [[ -f "$cookie" ]] || {
-        printf 'Cookie 文件不存在：%s\n' "$cookie" >&2
+      read -rsp '粘贴夸克 Cookie（输入不回显）：' cookie
+      printf '\n'
+      [[ -n "$cookie" ]] || {
+        printf 'Cookie 不能为空。\n' >&2
         return
       }
-      chmod 600 "$cookie" 2>/dev/null || true
       if ! python3 -c 'import requests' >/dev/null 2>&1; then
         python3 -m pip install --user requests
       fi
       [[ "$share" =~ ^(y|Y|yes|YES)$ ]] && args+=(--share)
-      python3 "$script_dir/upload-quark-bundle.py" --file "$bundle" --cookie-file "$cookie" --parent-id "$parent" "${args[@]}"
+      printf '%s' "$cookie" | python3 "$script_dir/upload-quark-bundle.py" --file "$bundle" --cookie-stdin --parent-id "$parent" "${args[@]}"
+      unset cookie
       ;;
     n|N|no|NO|'') ;;
     *) printf '无效选择，跳过夸克上传。\n' ;;
@@ -161,7 +162,7 @@ quark_upload_prompt() {
 }
 upload_existing_quark() {
   local bundle
-  bundle="$(ask 'bundle 压缩包 (.tar.gz)' "$HOME/lpminer-bundle.tar.gz")"
+  bundle="$(ask 'bundle 压缩包 (.tar.gz) 或 .work 文件夹' "$HOME/lpminer-bundle.tar.gz")"
   quark_upload_prompt "$bundle"
 }
 transfer_bundle() {
