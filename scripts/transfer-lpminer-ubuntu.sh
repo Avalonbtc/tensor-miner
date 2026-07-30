@@ -11,8 +11,8 @@ Usage:
     [--output /path/to/bundle.tar.gz] [--remote-dir /tmp/lpminer-bundle] \
     [--shm-gib 6] [--replace]
 
-The target uses the source wallet/pool by default. rsync transfers the single
-archive with --append-verify, so an interrupted archive upload resumes.
+The target uses the source wallet/pool by default. rsync transfers archives or
+legacy bundle directories with --append-verify, so interrupted files resume.
 EOF
 }
 
@@ -26,6 +26,7 @@ remote_dir=""
 replace=0
 shm_gib=6
 temporary_archive=""
+bundle_dir=""
 while (($#)); do
   case "$1" in
     --target) target="${2:-}"; shift 2 ;;
@@ -56,11 +57,7 @@ if [[ -n "$bundle" ]]; then
     [[ "$bundle" == *.tar.gz ]] || die "--bundle archive must end with .tar.gz"
     archive="$bundle"
   elif [[ -d "$bundle" ]]; then
-    temporary_archive="$(mktemp "${TMPDIR:-/tmp}/lpminer-bundle.XXXXXX")"
-    mv "$temporary_archive" "${temporary_archive}.tar.gz"
-    temporary_archive="${temporary_archive}.tar.gz"
-    tar -C "$bundle" -czf "$temporary_archive" .
-    archive="$temporary_archive"
+    bundle_dir="$bundle"
   else
     die "--bundle must be a .tar.gz archive or an existing legacy bundle directory"
   fi
@@ -71,24 +68,44 @@ else
   archive="$output_archive"
 fi
 
-gzip -t "$archive" >/dev/null || die "bundle archive is incomplete: $archive"
+if [[ -n "$bundle_dir" ]]; then
+  for file in image.tar models.tar tensor-miner.tar metadata.env SHA256SUMS install-lpminer-bundle-ubuntu.sh; do
+    [[ -f "$bundle_dir/$file" ]] || die "bundle directory is incomplete ($file is missing)"
+  done
+else
+  gzip -t "$archive" >/dev/null || die "bundle archive is incomplete: $archive"
+fi
 if [[ -z "$remote_dir" ]]; then
   remote_dir="/tmp/lpminer-bundle-$(date +%Y%m%d-%H%M%S)"
 fi
 [[ "$remote_dir" == /tmp/* && "$remote_dir" != *$'\n'* && "$remote_dir" != *$'\r'* ]] || die "remote-dir must be below /tmp"
-remote_archive="$remote_dir/bundle.tar.gz"
-remote_installer="$remote_dir/install-lpminer-bundle-ubuntu.sh"
 ssh -p "$port" "$target" "mkdir -p $(printf '%q' "$remote_dir")"
-if command -v rsync >/dev/null 2>&1; then
-  rsync -a --append-verify --partial --info=progress2 -e "ssh -p $port" "$archive" "$target:$remote_archive"
-  rsync -a --checksum -e "ssh -p $port" "$script_dir/install-lpminer-bundle-ubuntu.sh" "$target:$remote_installer"
+if [[ -n "$bundle_dir" ]]; then
+  remote_bundle="$remote_dir/bundle"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --append-verify --partial --info=progress2 -e "ssh -p $port" "$bundle_dir/" "$target:$remote_bundle/"
+  else
+    printf '[lpminer-transfer] rsync is unavailable; SCP fallback cannot resume interrupted files\n' >&2
+    scp -P "$port" -r "$bundle_dir/." "$target:$remote_bundle/"
+  fi
+  remote_command="bash $(printf '%q' "$remote_bundle/install-lpminer-bundle-ubuntu.sh") --bundle $(printf '%q' "$remote_bundle") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib") --replace-repo"
 else
-  printf '[lpminer-transfer] rsync is unavailable; SCP fallback cannot resume interrupted archives\n' >&2
-  scp -P "$port" "$archive" "$target:$remote_archive"
-  scp -P "$port" "$script_dir/install-lpminer-bundle-ubuntu.sh" "$target:$remote_installer"
+  remote_archive="$remote_dir/bundle.tar.gz"
+  remote_installer="$remote_dir/install-lpminer-bundle-ubuntu.sh"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --append-verify --partial --info=progress2 -e "ssh -p $port" "$archive" "$target:$remote_archive"
+    rsync -a --checksum -e "ssh -p $port" "$script_dir/install-lpminer-bundle-ubuntu.sh" "$target:$remote_installer"
+  else
+    printf '[lpminer-transfer] rsync is unavailable; SCP fallback cannot resume interrupted archives\n' >&2
+    scp -P "$port" "$archive" "$target:$remote_archive"
+    scp -P "$port" "$script_dir/install-lpminer-bundle-ubuntu.sh" "$target:$remote_installer"
+  fi
+  remote_command="bash $(printf '%q' "$remote_installer") --bundle $(printf '%q' "$remote_archive") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib") --replace-repo"
 fi
-
-remote_command="bash $(printf '%q' "$remote_installer") --bundle $(printf '%q' "$remote_archive") --label $(printf '%q' "$label") --shm-gib $(printf '%q' "$shm_gib") --replace-repo"
 if ((replace)); then remote_command+=" --replace --replace-cache"; fi
 ssh -p "$port" "$target" "$remote_command"
-printf '[lpminer-transfer] complete. Local archive kept at: %s\n' "$archive"
+if [[ -n "$bundle_dir" ]]; then
+  printf '[lpminer-transfer] complete. Source directory kept at: %s\n' "$bundle_dir"
+else
+  printf '[lpminer-transfer] complete. Local archive kept at: %s\n' "$archive"
+fi

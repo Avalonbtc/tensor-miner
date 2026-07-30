@@ -36,6 +36,9 @@ Creating the final archive temporarily needs one additional copy of the staged
 `image.tar` and `models.tar`. Keep at least the displayed work-directory size
 plus 1 GiB free on the filesystem selected for the output archive. The scripts
 now stop before compression with the exact extra capacity required.
+If the source host has no spare space for that extra copy, option `10` also
+accepts the retained `.work` directory and transfers its files directly with
+resumable rsync; the target installer accepts that legacy directory layout.
 
 Menu option `8` is resumable. Hugging Face and Xet cache data is kept in the
 persistent `lpminer-models` volume; a broken connection retries automatically
