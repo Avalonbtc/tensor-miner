@@ -80,6 +80,14 @@ install -m 700 "$script_dir/install-lpminer-bundle-ubuntu.sh" \
   "$stage_dir/install-lpminer-bundle-ubuntu.sh"
 (cd "$stage_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
 
+stage_bytes="$(du -sb "$stage_dir" | awk '{print $1}')"
+available_bytes="$(df -PB1 "$output_parent" | awk 'NR == 2 {print $4}')"
+required_bytes=$((stage_bytes + 1073741824))
+if ((available_bytes < required_bytes)); then
+  additional_gib=$(((required_bytes - available_bytes + 1073741823) / 1073741824))
+  die "not enough free space to create the .tar.gz archive; need another ${additional_gib} GiB on $output_parent"
+fi
+
 printf '[lpminer-package] creating compressed archive\n'
 tar -C "$stage_dir" -czf "$archive_partial" .
 gzip -t "$archive_partial"

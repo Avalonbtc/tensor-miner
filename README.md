@@ -32,6 +32,11 @@ contains the complete checkout with `.git`, every helper script, and the
 Chinese menu. Transfer restores it to `~/tensor-miner` on the target and backs
 up an older target checkout with a timestamp before replacement.
 
+Creating the final archive temporarily needs one additional copy of the staged
+`image.tar` and `models.tar`. Keep at least the displayed work-directory size
+plus 1 GiB free on the filesystem selected for the output archive. The scripts
+now stop before compression with the exact extra capacity required.
+
 Menu option `8` is resumable. Hugging Face and Xet cache data is kept in the
 persistent `lpminer-models` volume; a broken connection retries automatically
 and a later rerun continues from the cached chunks. Pressing `Ctrl-C` is safe.
