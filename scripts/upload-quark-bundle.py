@@ -170,8 +170,10 @@ def utc_date() -> str:
 def upload_url(pre: dict[str, Any]) -> str:
     data = pre["data"]
     suffix = str(data["upload_url"])
-    if suffix.startswith("https://"):
-        suffix = suffix[len("https://") :]
+    for scheme in ("https://", "http://"):
+        if suffix.startswith(scheme):
+            suffix = suffix[len(scheme) :]
+            break
     return f"https://{data['bucket']}.{suffix.rstrip('/')}/{quote(str(data['obj_key']), safe='/')}"
 
 
@@ -476,6 +478,9 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except KeyboardInterrupt:
+        print("[quark-upload] interrupted; run option 14 again to resume", file=sys.stderr)
+        raise SystemExit(130)
     except (OSError, KeyError, ValueError, UploadError, requests.RequestException) as exc:
         print(f"[quark-upload] ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
