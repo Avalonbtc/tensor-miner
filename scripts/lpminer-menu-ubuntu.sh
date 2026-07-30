@@ -122,7 +122,7 @@ prepare_bundle() {
   local wallet profile output
   wallet="$(ask '钱包地址 (tc1...)')"
   profile="$(ask '目标显卡档位：fp8、bf16 或 all' fp8)"
-  output="$(ask '打包输出目录' "$HOME/lpminer-${profile}-bundle")"
+  output="$(ask '打包输出文件 (.tar.gz)' "$HOME/lpminer-${profile}-bundle.tar.gz")"
   bash "$script_dir/prepare-lpminer-bundle-ubuntu.sh" --wallet "$wallet" --profile "$profile" --output "$output"
 }
 transfer_bundle() {
@@ -135,7 +135,7 @@ transfer_bundle() {
     1)
       ;;
     2)
-      bundle="$(ask 'bundle 目录（必须含 image.tar、models.tar、tensor-miner.tar、SHA256SUMS）' "$HOME/lpminer-fp8-bundle")"
+      bundle="$(ask 'bundle 压缩包 (.tar.gz)' "$HOME/lpminer-fp8-bundle.tar.gz")"
       args+=(--bundle "$bundle")
       ;;
     *)
@@ -148,7 +148,7 @@ transfer_bundle() {
 }
 install_bundle() {
   local bundle label shm
-  bundle="$(ask '本地 bundle 目录' /tmp/lpminer-bundle)"
+  bundle="$(ask '本地 bundle 压缩包 (.tar.gz)' /tmp/lpminer-bundle.tar.gz)"
   label="$(ask '矿工名' "$(hostname)")"
   shm="$(ask '共享内存 GiB' "$(gpu_default_shm)")"
   bash "$script_dir/install-lpminer-bundle-ubuntu.sh" --bundle "$bundle" --label "$label" --shm-gib "$shm"
@@ -183,7 +183,7 @@ EOF
     6) docker restart --time 90 lpminer ;;
     7) docker logs -f lpminer ;;
     8) prepare_bundle ;;
-    9) bash "$script_dir/package-lpminer-ubuntu.sh" --output "$(ask '打包输出目录' "$HOME/lpminer-bundle")" ;;
+    9) bash "$script_dir/package-lpminer-ubuntu.sh" --output "$(ask '打包输出文件 (.tar.gz)' "$HOME/lpminer-bundle.tar.gz")" ;;
     10) transfer_bundle ;;
     11) install_bundle ;;
     12) configure_proxy_failover ;;

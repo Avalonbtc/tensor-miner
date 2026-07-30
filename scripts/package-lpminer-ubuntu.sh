@@ -1,55 +1,53 @@
 #!/usr/bin/env bash
-# Create an offline Ubuntu-to-Ubuntu bundle from an already working miner.
+# Create one compressed offline Ubuntu-to-Ubuntu bundle from a working miner.
 set -Eeuo pipefail
 
 die() { printf '[lpminer-package] ERROR: %s\n' "$*" >&2; exit 2; }
-
 usage() {
   cat <<'EOF'
 Usage:
-  package-lpminer-ubuntu.sh [--container lpminer] --output /path/to/bundle
+  package-lpminer-ubuntu.sh [--container lpminer] --output /path/to/bundle.tar.gz
 
-The bundle contains the exact local image, the /models Docker volume cache,
-the running container's WALLET/POOL metadata, and a complete tensor-miner
-checkout (including .git and every helper/menu script). It does not and cannot
-copy the live GPU/vLLM process; the receiving machine starts a new process
-using the copied model cache.
+Creates one compressed .tar.gz bundle containing the exact local image, the
+/models Docker volume cache, metadata, and the complete tensor-miner checkout
+including .git and all helper/menu scripts. If --output lacks .tar.gz, the
+suffix is added automatically.
 EOF
 }
 
 container_name=lpminer
-output_dir=""
+output_archive=""
 while (($#)); do
   case "$1" in
     --container) container_name="${2:-}"; shift 2 ;;
-    --output) output_dir="${2:-}"; shift 2 ;;
+    --output) output_archive="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
 
-[[ -n "$output_dir" ]] || die "--output is required"
+[[ -n "$output_archive" ]] || die "--output is required"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
+[[ "$output_archive" == *.tar.gz ]] || output_archive="${output_archive}.tar.gz"
 command -v docker >/dev/null 2>&1 || die "Docker is not installed"
 docker container inspect "$container_name" >/dev/null 2>&1 || die "container $container_name does not exist"
 
-output_parent="$(dirname "$output_dir")"
+output_parent="$(dirname "$output_archive")"
 mkdir -p "$output_parent"
-output_dir="$(cd "$output_parent" && pwd)/$(basename "$output_dir")"
+output_parent="$(cd "$output_parent" && pwd)"
+output_archive="$output_parent/$(basename "$output_archive")"
+[[ ! -e "$output_archive" ]] || die "output archive already exists: $output_archive"
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/.." && pwd)"
 repo_parent="$(dirname "$repo_dir")"
 repo_name="$(basename "$repo_dir")"
-[[ "$output_dir/" != "$repo_dir/"* ]] ||
-  die "--output must be outside the tensor-miner checkout"
+[[ "$output_archive" != "$repo_dir/"* ]] || die "--output must be outside the tensor-miner checkout"
 
-if [[ -e "$output_dir" ]]; then
-  [[ -d "$output_dir" ]] || die "output exists but is not a directory: $output_dir"
-  [[ -z "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
-    die "output directory must be empty: $output_dir"
-else
-  mkdir -p "$output_dir"
-fi
+stage_dir="$(mktemp -d "$output_parent/.lpminer-bundle.XXXXXX")"
+archive_partial="${output_archive}.partial"
+cleanup() { rm -rf "$stage_dir" "$archive_partial"; }
+trap cleanup EXIT
 
 image="$(docker inspect --format '{{.Config.Image}}' "$container_name")"
 environment="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container_name")"
@@ -60,27 +58,33 @@ pool="$(printf '%s\n' "$environment" | sed -n 's/^POOL=//p' | head -n 1)"
   die "could not read a valid pool URL from $container_name"
 
 printf '[lpminer-package] saving image %s\n' "$image"
-docker image save --output "$output_dir/image.tar" "$image"
+docker image save --output "$stage_dir/image.tar" "$image"
 
 printf '[lpminer-package] archiving lpminer-models volume\n'
 docker run --rm \
   --entrypoint /bin/sh \
   --mount type=volume,src=lpminer-models,dst=/models,readonly \
-  --mount type=bind,src="$output_dir",dst=/bundle \
+  --mount type=bind,src="$stage_dir",dst=/bundle \
   "$image" -c 'tar -C /models -cf /bundle/models.tar .'
 
 printf '[lpminer-package] archiving tensor-miner checkout and .git metadata\n'
-tar -C "$repo_parent" -cf "$output_dir/tensor-miner.tar" "$repo_name"
+tar -C "$repo_parent" -cf "$stage_dir/tensor-miner.tar" "$repo_name"
 
-cat >"$output_dir/metadata.env" <<EOF
+cat >"$stage_dir/metadata.env" <<EOF
 IMAGE=$image
 WALLET=$wallet
 POOL=$pool
 SOURCE_CONTAINER=$container_name
 EOF
-install -m 700 "$(dirname "$0")/install-lpminer-bundle-ubuntu.sh" \
-  "$output_dir/install-lpminer-bundle-ubuntu.sh"
-(cd "$output_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
+install -m 700 "$script_dir/install-lpminer-bundle-ubuntu.sh" \
+  "$stage_dir/install-lpminer-bundle-ubuntu.sh"
+(cd "$stage_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
 
-du -sh "$output_dir"
-printf '[lpminer-package] bundle ready: %s\n' "$output_dir"
+printf '[lpminer-package] creating compressed archive\n'
+tar -C "$stage_dir" -czf "$archive_partial" .
+gzip -t "$archive_partial"
+mv "$archive_partial" "$output_archive"
+du -sh "$output_archive"
+printf '[lpminer-package] bundle ready: %s\n' "$output_archive"
+trap - EXIT
+rm -rf "$stage_dir"

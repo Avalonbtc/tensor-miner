@@ -7,7 +7,7 @@ die() { printf '[lpminer-install] ERROR: %s\n' "$*" >&2; exit 2; }
 usage() {
   cat <<'EOF'
 Usage:
-  install-lpminer-bundle-ubuntu.sh --bundle /path/to/bundle --label new-rig-name \
+  install-lpminer-bundle-ubuntu.sh --bundle /path/to/bundle.tar.gz --label new-rig-name \
     [--wallet tc1...] [--pool stratum+tls://eu.lproute.com:4160] \
     [--name lpminer] [--volume lpminer-models] [--shm-gib 6] \
     [--repo-dir ~/tensor-miner] [--replace] [--replace-cache] [--replace-repo]
@@ -21,6 +21,8 @@ EOF
 }
 
 bundle=""
+archive_extract=""
+staging_repo=""
 label=""
 wallet=""
 pool=""
@@ -32,6 +34,12 @@ replace_cache=0
 repo_dir="$HOME/tensor-miner"
 replace_repo=0
 stop_timeout_secs=90
+
+cleanup() {
+  [[ -z "$staging_repo" ]] || rm -rf "$staging_repo"
+  [[ -z "$archive_extract" ]] || rm -rf "$archive_extract"
+}
+trap cleanup EXIT
 
 stop_and_remove_existing_container() {
   local running
@@ -62,7 +70,21 @@ while (($#)); do
   esac
 done
 
-[[ -d "$bundle" ]] || die "bundle directory does not exist: $bundle"
+if [[ -f "$bundle" ]]; then
+  [[ "$bundle" == *.tar.gz ]] || die "bundle archive must end with .tar.gz"
+  if ! tar -tzf "$bundle" | awk '
+    /(^|\/)\.\.(\/|$)/ { bad=1; next }
+    /^\// { bad=1; next }
+    { seen=1 }
+    END { exit (seen && !bad) ? 0 : 1 }
+  '; then
+    die "bundle archive contains unsafe paths"
+  fi
+  archive_extract="$(mktemp -d)"
+  tar -xzf "$bundle" -C "$archive_extract"
+  bundle="$archive_extract"
+fi
+[[ -d "$bundle" ]] || die "bundle directory or .tar.gz archive does not exist: $bundle"
 [[ "$label" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "--label is required and must be safe"
 [[ "$container_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "container name is invalid"
 [[ "$volume_name" =~ ^[[:alnum:]_.-]{1,64}$ ]] || die "volume name is invalid"
@@ -114,14 +136,13 @@ if [[ -e "$repo_dir" ]]; then
   mv "$repo_dir" "$backup_repo"
 fi
 staging_repo="$(mktemp -d "$repo_parent/.tensor-miner.bundle.XXXXXX")"
-trap 'rm -rf "$staging_repo"' EXIT
 printf '[lpminer-install] restoring tensor-miner scripts to %s\n' "$repo_dir"
 tar --no-same-owner -C "$staging_repo" -xf "$bundle/tensor-miner.tar"
 [[ -d "$staging_repo/tensor-miner/scripts" && -d "$staging_repo/tensor-miner/.git" ]] ||
   die "restored tensor-miner checkout is incomplete"
 mv "$staging_repo/tensor-miner" "$repo_dir"
 rm -rf "$staging_repo"
-trap - EXIT
+staging_repo=""
 
 if docker container inspect "$container_name" >/dev/null 2>&1; then
   ((replace)) || die "container $container_name exists; use docker start $container_name or pass --replace"

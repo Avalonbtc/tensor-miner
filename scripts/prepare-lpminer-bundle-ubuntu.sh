@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-# Pre-download a TensorCash model on a non-GPU Ubuntu VPS and create a bundle.
+# Pre-download a TensorCash model on a no-GPU Ubuntu VPS and create one archive.
 set -Eeuo pipefail
 
 die() { printf '[lpminer-prepare] ERROR: %s\n' "$*" >&2; exit 2; }
 usage() {
   cat <<'EOF'
 Usage:
-  prepare-lpminer-bundle-ubuntu.sh --wallet tc1... --output /path/to/bundle \
+  prepare-lpminer-bundle-ubuntu.sh --wallet tc1... --output /path/to/bundle.tar.gz \
     [--profile fp8|bf16|all] [--pool URL] [--image IMAGE:TAG] \
     [--download-retries 0]
 
 Use fp8 for 12 GB and 16 GB target GPUs, bf16 for 24 GB target GPUs, and all
 only when the bundle must support both types. No GPU is needed on this host.
-The default retry value 0 retries interrupted pulls/downloads indefinitely and
-continues from the persistent lpminer-models volume.
+The final result is one .tar.gz archive. Its .work directory is retained only
+after an interrupted run, so the next run continues from the persistent model
+cache. Retry value 0 means retry interrupted pulls/downloads indefinitely.
 EOF
 }
 
 wallet=""
-output_dir=""
+output_archive=""
 profile=fp8
 pool="stratum+tls://eu.lproute.com:4160"
 image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
@@ -26,7 +27,7 @@ download_retries=0
 while (($#)); do
   case "$1" in
     --wallet) wallet="${2:-}"; shift 2 ;;
-    --output) output_dir="${2:-}"; shift 2 ;;
+    --output) output_archive="${2:-}"; shift 2 ;;
     --profile) profile="${2:-}"; shift 2 ;;
     --pool) pool="${2:-}"; shift 2 ;;
     --image) image="${2:-}"; shift 2 ;;
@@ -37,7 +38,7 @@ while (($#)); do
 done
 
 [[ "$wallet" =~ ^tc1[0-9a-z]+$ ]] || die "--wallet must be a TensorCash tc1... address"
-[[ -n "$output_dir" ]] || die "--output is required"
+[[ -n "$output_archive" ]] || die "--output is required"
 [[ "$profile" == fp8 || "$profile" == bf16 || "$profile" == all ]] || die "profile must be fp8, bf16, or all"
 [[ "$pool" =~ ^stratum\+(tcp|tls|ssl)://[^/:[:space:]]+:[0-9]+$ ]] || die "pool is invalid"
 [[ "$image" =~ ^[[:alnum:]_./:@-]+$ ]] || die "image reference is invalid"
@@ -46,33 +47,42 @@ done
 command -v docker >/dev/null 2>&1 || die "Docker is not installed"
 docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
 
-output_parent="$(dirname "$output_dir")"
+[[ "$output_archive" == *.tar.gz ]] || output_archive="${output_archive}.tar.gz"
+output_parent="$(dirname "$output_archive")"
 mkdir -p "$output_parent"
-output_dir="$(cd "$output_parent" && pwd)/$(basename "$output_dir")"
+output_parent="$(cd "$output_parent" && pwd)"
+output_archive="$output_parent/$(basename "$output_archive")"
+work_dir="${output_archive%.tar.gz}.work"
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/.." && pwd)"
 repo_parent="$(dirname "$repo_dir")"
 repo_name="$(basename "$repo_dir")"
-[[ "$output_dir/" != "$repo_dir/"* ]] ||
+[[ "$output_archive" != "$repo_dir/"* && "$work_dir/" != "$repo_dir/"* ]] ||
   die "--output must be outside the tensor-miner checkout"
-if [[ -e "$output_dir" ]]; then
-  [[ -d "$output_dir" ]] || die "output exists but is not a directory: $output_dir"
-else
-  mkdir -p "$output_dir"
-fi
 
-bundle_files=(image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh)
-if [[ -f "$output_dir/SHA256SUMS" ]]; then
-  bundle_complete=1
-  for file in "${bundle_files[@]}"; do
-    [[ -f "$output_dir/$file" ]] || bundle_complete=0
-  done
-  if ((bundle_complete)) && (cd "$output_dir" && sha256sum --check --strict SHA256SUMS >/dev/null 2>&1); then
-    printf '[lpminer-prepare] complete bundle already exists: %s\n' "$output_dir"
+bundle_files=(image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh SHA256SUMS)
+if [[ -f "$output_archive" ]]; then
+  if archive_contents="$(tar -tzf "$output_archive")"; then
+    archive_complete=1
+    for file in "${bundle_files[@]}"; do
+      grep -Eq "^\./${file}$" <<<"$archive_contents" || archive_complete=0
+    done
+  else
+    archive_complete=0
+  fi
+  if ((archive_complete)); then
+    printf '[lpminer-prepare] complete bundle already exists: %s\n' "$output_archive"
     exit 0
   fi
+  die "output archive exists but is incomplete: $output_archive"
 fi
-if [[ -n "$(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+if [[ -e "$work_dir" ]]; then
+  [[ -d "$work_dir" ]] || die "temporary work path is not a directory: $work_dir"
+else
+  mkdir -p "$work_dir"
+fi
+if [[ -n "$(find "$work_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
   printf '[lpminer-prepare] resuming incomplete bundle; cached model chunks are retained\n'
 fi
 
@@ -93,7 +103,7 @@ run_with_retry() {
     fi
     delay=$((attempt * 10))
     ((delay > 300)) && delay=300
-    printf '[lpminer-prepare] connection failed; preserving cache and retrying in %ss (Ctrl-C is safe)\n' "$delay" >&2
+    printf '[lpminer-prepare] connection failed; preserving completed cache and retrying in %ss (Ctrl-C is safe)\n' "$delay" >&2
     sleep "$delay"
   done
 }
@@ -125,24 +135,31 @@ if [[ "$profile" == bf16 || "$profile" == all ]]; then
 fi
 
 printf '[lpminer-prepare] saving image and model cache\n'
-docker image save --output "$output_dir/image.tar" "$image"
+docker image save --output "$work_dir/image.tar" "$image"
 docker run --rm --entrypoint /bin/sh \
   --mount type=volume,src=lpminer-models,dst=/models,readonly \
-  --mount type=bind,src="$output_dir",dst=/bundle \
+  --mount type=bind,src="$work_dir",dst=/bundle \
   "$image" -c 'tar -C /models -cf /bundle/models.tar .'
 
 printf '[lpminer-prepare] archiving tensor-miner checkout and .git metadata\n'
-tar -C "$repo_parent" -cf "$output_dir/tensor-miner.tar" "$repo_name"
-
-cat >"$output_dir/metadata.env" <<EOF
+tar -C "$repo_parent" -cf "$work_dir/tensor-miner.tar" "$repo_name"
+cat >"$work_dir/metadata.env" <<EOF
 IMAGE=$image
 WALLET=$wallet
 POOL=$pool
 PROFILE=$profile
 SOURCE_CONTAINER=preloaded-no-gpu-vps
 EOF
-install -m 700 "$(dirname "$0")/install-lpminer-bundle-ubuntu.sh" \
-  "$output_dir/install-lpminer-bundle-ubuntu.sh"
-(cd "$output_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
-du -sh "$output_dir"
-printf '[lpminer-prepare] bundle ready: %s\n' "$output_dir"
+install -m 700 "$script_dir/install-lpminer-bundle-ubuntu.sh" \
+  "$work_dir/install-lpminer-bundle-ubuntu.sh"
+(cd "$work_dir" && sha256sum image.tar models.tar tensor-miner.tar metadata.env install-lpminer-bundle-ubuntu.sh > SHA256SUMS)
+
+archive_partial="${output_archive}.partial"
+rm -f "$archive_partial"
+printf '[lpminer-prepare] creating compressed archive\n'
+tar -C "$work_dir" -czf "$archive_partial" .
+gzip -t "$archive_partial"
+mv "$archive_partial" "$output_archive"
+rm -rf "$work_dir"
+du -sh "$output_archive"
+printf '[lpminer-prepare] bundle ready: %s\n' "$output_archive"

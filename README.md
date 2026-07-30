@@ -27,10 +27,10 @@ Each mining host needs Docker, an NVIDIA driver, and NVIDIA Container Toolkit.
 The image uses a persistent Docker volume named `lpminer-models` for model
 cache. At least 12 GB of VRAM is required.
 
-Every newly created bundle also includes `tensor-miner.tar`: the complete
-checkout with `.git`, every helper script, and the Chinese menu. Transfer
-restores it to `~/tensor-miner` on the target and backs up an older target
-checkout with a timestamp before replacement.
+Every bundle is one compressed `.tar.gz` archive. Inside it, `tensor-miner.tar`
+contains the complete checkout with `.git`, every helper script, and the
+Chinese menu. Transfer restores it to `~/tensor-miner` on the target and backs
+up an older target checkout with a timestamp before replacement.
 
 Menu option `8` is resumable. Hugging Face and Xet cache data is kept in the
 persistent `lpminer-models` volume; a broken connection retries automatically
@@ -150,10 +150,9 @@ bash scripts/transfer-lpminer-ubuntu.sh \
 ```
 
 In the Chinese menu, option `10` now offers `1` to package the currently
-running `lpminer` automatically, or `2` to use a prepared bundle from option
-`8` or `9`. A prepared bundle is a directory containing `image.tar`,
-`models.tar`, `tensor-miner.tar`, `metadata.env`, `SHA256SUMS`, and the
-installer; do not enter a single `.tar` file or an empty download directory.
+running `lpminer` automatically, or `2` to use a prepared `.tar.gz` bundle
+from option `8` or `9`. Its contents are `image.tar`, `models.tar`,
+`tensor-miner.tar`, `metadata.env`, `SHA256SUMS`, and the installer.
 
 The target receives the image and `/models` cache, keeps the source wallet and
 pool, and starts with its new `LABEL`. The live GPU process is not migrated;
@@ -172,7 +171,7 @@ For a 12 GB or 16 GB target, pre-download the FP8 model without a GPU:
 bash scripts/prepare-lpminer-bundle-ubuntu.sh \
   --wallet tc1yourwallet \
   --profile fp8 \
-  --output ~/lpminer-fp8-bundle
+  --output ~/lpminer-fp8-bundle.tar.gz
 ```
 
 Use `--profile bf16` for a 24 GB target or `--profile all` for a bundle that
@@ -181,7 +180,7 @@ setting the new worker name:
 
 ```bash
 bash scripts/transfer-lpminer-ubuntu.sh \
-  --bundle ~/lpminer-fp8-bundle \
+  --bundle ~/lpminer-fp8-bundle.tar.gz \
   --target root@target-host \
   --label rig-02
 ```
@@ -190,5 +189,4 @@ For a four-or-more GPU target, append `--shm-gib 16` to the transfer command.
 
 When `rsync` is installed on both hosts, the transfer uses resumable
 `--append-verify` mode. Re-run the exact same command after an interruption;
-the stable `/tmp/<bundle-name>` target directory retains partial files. The
-SCP fallback cannot resume.
+the target's partial archive is retained. The SCP fallback cannot resume.
