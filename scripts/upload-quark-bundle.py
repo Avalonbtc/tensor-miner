@@ -75,13 +75,18 @@ class QuarkDrive:
             json=payload or {},
             timeout=(30, 120),
         )
-        response.raise_for_status()
         if response.cookies.get("__puus"):
             current = self.session.headers.get("Cookie", "")
             refreshed = f"__puus={response.cookies['__puus']}"
             if refreshed not in current:
                 self.session.headers["Cookie"] = f"{current}; {refreshed}".strip("; ")
-        body = response.json()
+        try:
+            body = response.json()
+        except ValueError:
+            body = {}
+        if not response.ok:
+            detail = body.get("message") or response.text[:500] or "no response body"
+            raise UploadError(f"Quark API HTTP {response.status_code}: {detail}")
         if body.get("status", 200) >= 400 or body.get("code", 0) != 0:
             raise UploadError(str(body.get("message") or "Quark API request failed"))
         return body
@@ -410,7 +415,9 @@ def main() -> int:
         and state.get("parent_id") == args.parent_id
         and isinstance(state.get("pre"), dict)
     )
-    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    mime = "application/octet-stream" if path.name.endswith((".tar", ".tar.gz")) else (
+        mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    )
 
     if valid_state:
         pre = state["pre"]
