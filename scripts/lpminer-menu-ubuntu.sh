@@ -135,7 +135,7 @@ transfer_bundle() {
     1)
       ;;
     2)
-      bundle="$(ask 'bundle 压缩包 (.tar.gz)' "$HOME/lpminer-fp8-bundle.tar.gz")"
+      bundle="$(ask 'bundle 压缩包 (.tar.gz) 或未完成的 .work 目录' "$HOME/lpminer-fp8-bundle.tar.gz")"
       args+=(--bundle "$bundle")
       ;;
     *)
