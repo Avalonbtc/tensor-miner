@@ -32,6 +32,12 @@ checkout with `.git`, every helper script, and the Chinese menu. Transfer
 restores it to `~/tensor-miner` on the target and backs up an older target
 checkout with a timestamp before replacement.
 
+Menu option `8` is resumable. Hugging Face and Xet cache data is kept in the
+persistent `lpminer-models` volume; a broken connection retries automatically
+and a later rerun continues from the cached chunks. Pressing `Ctrl-C` is safe.
+Use `--download-retries N` only when a finite retry limit is wanted; `0` is the
+default and retries indefinitely.
+
 ## Start one miner
 
 ```bash
