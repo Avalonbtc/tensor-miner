@@ -37,6 +37,9 @@ persistent `lpminer-models` volume; a broken connection retries automatically
 and a later rerun continues from the cached chunks. Pressing `Ctrl-C` is safe.
 Use `--download-retries N` only when a finite retry limit is wanted; `0` is the
 default and retries indefinitely.
+If the requested image tag has already been pulled manually, option `8` detects
+it with `docker image inspect`, skips the image pull, and starts the model
+download immediately.
 
 For repeated `short read ... unexpected EOF` errors while pulling the large
 Docker image layer, select menu option `13` once, then rerun option `8`. It

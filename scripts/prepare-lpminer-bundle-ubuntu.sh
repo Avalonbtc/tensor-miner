@@ -98,7 +98,11 @@ run_with_retry() {
   done
 }
 
-run_with_retry "pulling image $image" docker pull "$image"
+if docker image inspect "$image" >/dev/null 2>&1; then
+  printf '[lpminer-prepare] image already exists locally; skipping docker pull: %s\n' "$image"
+else
+  run_with_retry "pulling image $image" docker pull "$image"
+fi
 docker volume create lpminer-models >/dev/null
 
 download_model() {
