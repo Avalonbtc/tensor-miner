@@ -54,6 +54,33 @@ Docker image layer, select menu option `13` once, then rerun option `8`. It
 sets Docker to one concurrent layer download and raises its per-pull retry
 limit without replacing existing daemon settings.
 
+## Upload a completed bundle to Quark Drive
+
+Menu option `14` uploads an existing `.tar.gz` archive. Options `8` and `9`
+also ask whether to upload immediately after a successful bundle is created.
+Store the Quark browser cookie in a private local file; it is ignored by Git:
+
+```bash
+mkdir -p ~/.config/tensor-miner
+chmod 700 ~/.config/tensor-miner
+printf '%s' 'YOUR_QUARK_COOKIE' > ~/.config/tensor-miner/quark.cookie
+chmod 600 ~/.config/tensor-miner/quark.cookie
+```
+
+The uploader uses the selected Quark parent directory ID (`0` means root),
+streams each multipart upload from disk, and records completed part ETags in
+`<bundle>.quark-upload-state.json`. Re-run option `14` after a network break to
+resume the unfinished parts. The state file and cookie are never committed.
+
+For non-interactive use:
+
+```bash
+python3 scripts/upload-quark-bundle.py \
+  --file ~/lpminer-bf16-bundle.tar.gz \
+  --cookie-file ~/.config/tensor-miner/quark.cookie \
+  --parent-id 0
+```
+
 ## Start one miner
 
 ```bash

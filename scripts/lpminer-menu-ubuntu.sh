@@ -124,6 +124,45 @@ prepare_bundle() {
   profile="$(ask '目标显卡档位：fp8、bf16 或 all' fp8)"
   output="$(ask '打包输出文件 (.tar.gz)' "$HOME/lpminer-${profile}-bundle.tar.gz")"
   bash "$script_dir/prepare-lpminer-bundle-ubuntu.sh" --wallet "$wallet" --profile "$profile" --output "$output"
+  quark_upload_prompt "${output%.tar.gz}.tar.gz"
+}
+package_bundle() {
+  local output
+  output="$(ask '打包输出文件 (.tar.gz)' "$HOME/lpminer-bundle.tar.gz")"
+  bash "$script_dir/package-lpminer-ubuntu.sh" --output "$output"
+  quark_upload_prompt "${output%.tar.gz}.tar.gz"
+}
+quark_upload_prompt() {
+  local bundle="$1" enable cookie parent share args=()
+  [[ -f "$bundle" ]] || {
+    printf '未找到可上传的 bundle：%s\n' "$bundle" >&2
+    return
+  }
+  enable="$(ask '上传到夸克网盘？(y/N)' N)"
+  case "$enable" in
+    y|Y|yes|YES)
+      cookie="$(ask '夸克 Cookie 文件路径' "$HOME/.config/tensor-miner/quark.cookie")"
+      parent="$(ask '夸克目标目录 ID（0 为根目录）' 0)"
+      share="$(ask '上传后创建分享链接？(y/N)' N)"
+      [[ -f "$cookie" ]] || {
+        printf 'Cookie 文件不存在：%s\n' "$cookie" >&2
+        return
+      }
+      chmod 600 "$cookie" 2>/dev/null || true
+      if ! python3 -c 'import requests' >/dev/null 2>&1; then
+        python3 -m pip install --user requests
+      fi
+      [[ "$share" =~ ^(y|Y|yes|YES)$ ]] && args+=(--share)
+      python3 "$script_dir/upload-quark-bundle.py" --file "$bundle" --cookie-file "$cookie" --parent-id "$parent" "${args[@]}"
+      ;;
+    n|N|no|NO|'') ;;
+    *) printf '无效选择，跳过夸克上传。\n' ;;
+  esac
+}
+upload_existing_quark() {
+  local bundle
+  bundle="$(ask 'bundle 压缩包 (.tar.gz)' "$HOME/lpminer-bundle.tar.gz")"
+  quark_upload_prompt "$bundle"
 }
 transfer_bundle() {
   local source bundle target label shm args=()
@@ -171,6 +210,7 @@ while true; do
 11) 在本 GPU 服务器恢复并安装 bundle
 12) 读取 S5 代理 txt 并配置 IP ban 切换（保留模型缓存并重建矿机）
 13) 修复 Docker Hub 大镜像断线下载
+14) 上传 bundle 到夸克网盘（支持断点续传）
 0) 退出
 EOF
   read -rp '请选择：' selection
@@ -183,11 +223,12 @@ EOF
     6) docker restart --time 90 lpminer ;;
     7) docker logs -f lpminer ;;
     8) prepare_bundle ;;
-    9) bash "$script_dir/package-lpminer-ubuntu.sh" --output "$(ask '打包输出文件 (.tar.gz)' "$HOME/lpminer-bundle.tar.gz")" ;;
+    9) package_bundle ;;
     10) transfer_bundle ;;
     11) install_bundle ;;
     12) configure_proxy_failover ;;
     13) bash "$script_dir/configure-docker-pull-ubuntu.sh" ;;
+    14) upload_existing_quark ;;
     0) exit 0 ;;
     *) printf '无效选择，请重新输入。\n' ;;
   esac
