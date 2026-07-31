@@ -10,6 +10,11 @@ Normal launches reuse a matching local image and therefore work after an
 offline bundle restore. Use menu option `2` when an explicit registry refresh
 is desired.
 
+On NVIDIA hosts, launch and restore use the mature `nvidia` Docker runtime with
+`NVIDIA_VISIBLE_DEVICES=all`, rather than Docker's CDI `--gpus all` route.
+This avoids erroneous `AMD CDI spec not found` failures on affected Docker
+installations.
+
 Every normal or replacement launch runs `docker pull` before it recreates the
 container while preserving the local `lpminer-models` cache volume.
 

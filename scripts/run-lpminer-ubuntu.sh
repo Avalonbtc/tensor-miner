@@ -142,6 +142,8 @@ command -v docker >/dev/null 2>&1 || die "Docker is not installed"
 docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
 gpu_count="$(nvidia-smi -L 2>/dev/null | awk '/^GPU / {count++} END {print count + 0}')"
 ((gpu_count > 0)) || die "no NVIDIA GPU is available"
+docker info --format '{{json .Runtimes}}' | grep -q '"nvidia"' ||
+  die "NVIDIA Docker runtime is missing; run menu option 1 to configure NVIDIA Container Toolkit"
 minimum_shm_gib=4
 ((gpu_count >= 4)) && minimum_shm_gib=16
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
@@ -230,9 +232,11 @@ docker run -d \
   --name "$container_name" \
   --restart unless-stopped \
   --stop-timeout "$stop_timeout_secs" \
-  --gpus all \
+  --runtime=nvidia \
   --shm-size="${shm_gib}g" \
   --mount type=volume,src=lpminer-models,dst=/models \
+  --env 'NVIDIA_VISIBLE_DEVICES=all' \
+  --env 'NVIDIA_DRIVER_CAPABILITIES=compute,utility' \
   --env "WALLET=$wallet" \
   --env "LABEL=$label" \
   --env "POOL=$pool" \

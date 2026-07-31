@@ -132,6 +132,8 @@ gpu_count="$(nvidia-smi -L | awk '/^GPU / {count++} END {print count + 0}')"
 minimum_shm_gib=4
 ((gpu_count >= 4)) && minimum_shm_gib=16
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
+docker info --format '{{json .Runtimes}}' | grep -q '"nvidia"' ||
+  die "NVIDIA Docker runtime is missing; run install-docker-nvidia-ubuntu.sh first"
 
 repo_parent="$(dirname "$repo_dir")"
 repo_base="$(basename "$repo_dir")"
@@ -178,9 +180,11 @@ docker run -d \
   --name "$container_name" \
   --restart unless-stopped \
   --stop-timeout "$stop_timeout_secs" \
-  --gpus all \
+  --runtime=nvidia \
   --shm-size="${shm_gib}g" \
   --mount type=volume,src="$volume_name",dst=/models \
+  --env 'NVIDIA_VISIBLE_DEVICES=all' \
+  --env 'NVIDIA_DRIVER_CAPABILITIES=compute,utility' \
   --env "WALLET=$wallet" \
   --env "LABEL=$label" \
   --env "POOL=$pool" \
