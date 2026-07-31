@@ -15,6 +15,11 @@ On NVIDIA hosts, launch and restore use the mature `nvidia` Docker runtime with
 This avoids erroneous `AMD CDI spec not found` failures on affected Docker
 installations.
 
+For HiveOS hosts with NVIDIA CMP 170HX cards, use menu option `15` (or run
+`bash scripts/configure-nvidia-runtime-hiveos.sh`) to install/configure the
+NVIDIA Container Toolkit without replacing Docker, then use option `4` to
+recreate the miner.
+
 Every normal or replacement launch runs `docker pull` before it recreates the
 container while preserving the local `lpminer-models` cache volume.
 

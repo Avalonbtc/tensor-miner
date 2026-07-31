@@ -212,6 +212,7 @@ while true; do
 12) 读取 S5 代理 txt 并配置 IP ban 切换（保留模型缓存并重建矿机）
 13) 修复 Docker Hub 大镜像断线下载
 14) 上传 bundle 到夸克网盘（支持断点续传）
+15) HiveOS 配置 NVIDIA Docker runtime（修复 CDI）
 0) 退出
 EOF
   read -rp '请选择：' selection
@@ -230,6 +231,7 @@ EOF
     12) configure_proxy_failover ;;
     13) bash "$script_dir/configure-docker-pull-ubuntu.sh" ;;
     14) upload_existing_quark ;;
+    15) bash "$script_dir/configure-nvidia-runtime-hiveos.sh" ;;
     0) exit 0 ;;
     *) printf '无效选择，请重新输入。\n' ;;
   esac
