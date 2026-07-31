@@ -80,6 +80,26 @@ printf '%s' "$cookie" | python3 scripts/upload-quark-bundle.py \
 unset cookie
 ```
 
+## Transfer from Windows to Ubuntu
+
+Run this from PowerShell after a bundle archive or `.work` folder has been
+downloaded to Windows. It uses the built-in Windows OpenSSH `sftp put -a`
+resume mode, uploads the Ubuntu installer, then starts the target installer.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\transfer-lpminer-windows-to-ubuntu.ps1 `
+  -Source 'C:\Downloads\lpminer-bf16-bundle.work' `
+  -Target 'ubuntu@GPU_HOST' `
+  -Port 22 `
+  -Label 'rig-01' `
+  -ShmGiB 6 `
+  -Replace
+```
+
+Use a `.tar.gz` path for an archive or a `.work` folder path to avoid creating
+another archive on the Windows disk. The script prints a stable `/tmp/...`
+remote directory; re-run the exact command after an interruption to continue.
+
 ## Start one miner
 
 ```bash
