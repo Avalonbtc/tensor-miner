@@ -99,6 +99,9 @@ powershell -ExecutionPolicy Bypass -File scripts\transfer-lpminer-windows-to-ubu
 Use a `.tar.gz` path for an archive or a `.work` folder path to avoid creating
 another archive on the Windows disk. The script prints a stable `/tmp/...`
 remote directory; re-run the exact command after an interruption to continue.
+If manual recovery is needed after the files reach Ubuntu, change into the
+remote `bundle` directory and run `bash install-lpminer-bundle-ubuntu.sh`; it
+auto-detects that directory and uses the target hostname as the worker label.
 
 ## Start one miner
 

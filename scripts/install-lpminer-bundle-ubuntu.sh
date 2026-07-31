@@ -7,13 +7,15 @@ die() { printf '[lpminer-install] ERROR: %s\n' "$*" >&2; exit 2; }
 usage() {
   cat <<'EOF'
 Usage:
-  install-lpminer-bundle-ubuntu.sh --bundle /path/to/bundle.tar.gz --label new-rig-name \
+  install-lpminer-bundle-ubuntu.sh [--bundle /path/to/bundle.tar.gz] [--label new-rig-name] \
     [--wallet tc1...] [--pool stratum+tls://eu.lproute.com:4160] \
     [--name lpminer] [--volume lpminer-models] [--shm-gib 6] \
     [--repo-dir ~/tensor-miner] [--replace] [--replace-cache] [--replace-repo]
 
 Without --wallet/--pool, the values captured from the source miner are used.
 Docker, NVIDIA driver, and NVIDIA Container Toolkit must already be installed.
+When run inside a transferred bundle without --bundle/--label, the script
+uses its own directory and the local hostname automatically.
 The bundled tensor-miner checkout, including .git and all menu/helper scripts,
 is restored to --repo-dir. --replace-repo keeps an existing checkout as a
 timestamped backup before replacing it.
@@ -70,6 +72,12 @@ while (($#)); do
   esac
 done
 
+if [[ -z "$bundle" ]]; then
+  bundle="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+if [[ -z "$label" ]]; then
+  label="$(hostname)"
+fi
 if [[ -f "$bundle" ]]; then
   [[ "$bundle" == *.tar.gz ]] || die "bundle archive must end with .tar.gz"
   if ! tar -tzf "$bundle" | awk '
