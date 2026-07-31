@@ -146,9 +146,14 @@ minimum_shm_gib=4
 ((gpu_count >= 4)) && minimum_shm_gib=16
 ((shm_gib >= minimum_shm_gib)) || die "${gpu_count} GPUs require --shm-gib ${minimum_shm_gib} or more"
 
-# Resolve the requested tag before replacing an existing working container.
-printf '[lpminer-run] pulling image updates: %s\n' "$image"
-docker pull "$image"
+# Bundles are intended to run offline. Reuse the exact loaded image when it is
+# present; menu option 2 remains the explicit way to refresh an image tag.
+if docker image inspect "$image" >/dev/null 2>&1; then
+  printf '[lpminer-run] image already exists locally; skipping docker pull: %s\n' "$image"
+else
+  printf '[lpminer-run] image is missing locally; pulling: %s\n' "$image"
+  docker pull "$image"
+fi
 
 preserved_env=()
 stop_timeout_secs=90

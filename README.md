@@ -6,6 +6,10 @@ The default image is the validated `1.1.1-overlay6` release. It is used by all
 normal launches, offline preparation bundles, and the interactive menu unless
 an explicit `--image` value is supplied.
 
+Normal launches reuse a matching local image and therefore work after an
+offline bundle restore. Use menu option `2` when an explicit registry refresh
+is desired.
+
 Every normal or replacement launch runs `docker pull` before it recreates the
 container while preserving the local `lpminer-models` cache volume.
 
