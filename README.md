@@ -1,8 +1,8 @@
 # Tensor miner Ubuntu scripts
 
-Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay6`.
+Ubuntu helper scripts for `avalonbtc/lpminer-tensorcash:1.1.1-overlay7`.
 
-The default image is the validated `1.1.1-overlay6` release. It is used by all
+The default image is the validated `1.1.1-overlay7` release. It is used by all
 normal launches, offline preparation bundles, and the interactive menu unless
 an explicit `--image` value is supplied.
 

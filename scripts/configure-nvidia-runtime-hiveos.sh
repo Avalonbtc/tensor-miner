@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 die() { printf '[lpminer-hive-runtime] ERROR: %s\n' "$*" >&2; exit 2; }
-image="avalonbtc/lpminer-tensorcash:1.1.1-overlay6"
+image="avalonbtc/lpminer-tensorcash:1.1.1-overlay7"
 while (($#)); do
   case "$1" in
     --image) image="${2:-}"; shift 2 ;;
