@@ -53,9 +53,9 @@ start_miner() {
       graph_mem="$(ask '图模式显存比例（12G 推荐 0.91）' 0.91)"
       graph_devices="$(ask '测试 GPU（0=仅第1张，all=全部）' 0)"
       args+=(--cuda-graphs --gpu-memory-utilization "$graph_mem")
-      if [[ "$graph_devices" != all ]]; then
-        args+=(--devices "$graph_devices")
-      fi
+      # Pass `all` through explicitly.  On a replaced container this clears a
+      # previous CUDA_VISIBLE_DEVICES=0 from a one-GPU test.
+      args+=(--devices "$graph_devices")
       ;;
     n|N|no|NO|'') ;;
     *)

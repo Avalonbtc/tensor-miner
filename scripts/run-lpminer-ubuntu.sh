@@ -8,7 +8,7 @@ usage() {
 Usage:
   run-lpminer-ubuntu.sh --wallet tc1... [--label rig01] [--pool URL] \
     [--image IMAGE:TAG] [--name lpminer] [--shm-gib 6] [--replace] \
-    [--cuda-graphs|--enforce-eager] [--gpu-memory-utilization 0.91] [--devices 0,1] \
+    [--cuda-graphs|--enforce-eager] [--gpu-memory-utilization 0.91] [--devices all|0,1] \
     [--proxy-file /path/proxies.txt] [--proxy-pool URI,...] \
     [--proxy-rotate sequential|random] \
     [--proxy-worker-rotate 0|1] \
@@ -39,6 +39,7 @@ replace=0
 cuda_graphs=1
 gpu_memory_utilization=""
 devices=""
+devices_specified=0
 proxy_pool=""
 proxy_file=""
 proxy_rotate=sequential
@@ -59,7 +60,7 @@ while (($#)); do
     --cuda-graphs) cuda_graphs=1; shift ;;
     --enforce-eager) cuda_graphs=0; shift ;;
     --gpu-memory-utilization) gpu_memory_utilization="${2:-}"; shift 2 ;;
-    --devices) devices="${2:-}"; shift 2 ;;
+    --devices) devices="${2:-}"; devices_specified=1; shift 2 ;;
     --proxy-file) proxy_file="${2:-}"; shift 2 ;;
     --proxy-pool) proxy_pool="${2:-}"; shift 2 ;;
     --proxy-rotate) proxy_rotate="${2:-}"; shift 2 ;;
@@ -83,9 +84,14 @@ if [[ -n "$gpu_memory_utilization" ]]; then
   [[ "$gpu_memory_utilization" =~ ^0\.[0-9]+$|^1\.0+$ ]] ||
     die "gpu-memory-utilization must be a decimal from 0 to 1"
 fi
-if [[ -n "$devices" ]]; then
+if [[ "$devices" == all ]]; then
+  # An explicit `all` is distinct from omitting --devices: when replacing a
+  # former one-GPU test container it must clear its preserved
+  # CUDA_VISIBLE_DEVICES restriction.
+  devices=""
+elif [[ -n "$devices" ]]; then
   [[ "$devices" =~ ^[0-9]+(,[0-9]+)*$ ]] ||
-    die "devices must be one or more comma-separated GPU indices"
+    die "devices must be all or one or more comma-separated GPU indices"
 fi
 [[ "$proxy_rotate" == sequential || "$proxy_rotate" == random ]] ||
   die "proxy-rotate must be sequential or random"
@@ -187,7 +193,7 @@ if docker container inspect "$container_name" >/dev/null 2>&1; then
     )
     for key in "${preserve_keys[@]}"; do
       case "$key" in
-        CUDA_VISIBLE_DEVICES) [[ -n "$devices" ]] && continue ;;
+        CUDA_VISIBLE_DEVICES) ((devices_specified)) && continue ;;
         LP_TSC_GPU_MEMORY_UTILIZATION) [[ -n "$gpu_memory_utilization" ]] && continue ;;
         LP_TSC_FP8_ENFORCE_EAGER|LP_TSC_CUDA_GRAPH_SIZES) continue ;;
         LP_TSC_STRATUM_FAILOVER|LP_TSC_PROXY_POOL|LP_TSC_PROXY_SOURCE_FILE|LP_TSC_PROXY_ROTATE|LP_TSC_PROXY_WORKER_ROTATE|LP_TSC_PROXY_FAILURE_THRESHOLD|LP_TSC_PROXY_COOLDOWN_SECS)
